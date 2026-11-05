@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F4F7F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131916" media="(prefers-color-scheme: dark)">
+<!-- The page title is filled in from the language files -->
+<title data-i18n="app.pageTitle"></title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233F7F33'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23E5BE57'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <!-- Language buttons are added by js/main.js, one per language file -->
+    <nav class="lang-switch" id="langSwitch" data-i18n-aria-label="lang.switchLabel"></nav>
+  </header>
+
+  <main>
+    <!-- Start screen -->
+    <section class="screen" id="screen-start">
+      <div class="motif" id="motif" aria-hidden="true"></div>
+      <h1 class="title" tabindex="-1" data-i18n="app.title"></h1>
+      <p class="subtitle" data-i18n="start.subtitle"></p>
+      <button type="button" class="btn btn-primary" id="newGameBtn" data-i18n="start.newGame"></button>
+    </section>
+
+    <!-- Game screen (placeholder until Milestone 2) -->
+    <section class="screen" id="screen-game" hidden>
+      <h1 class="title" tabindex="-1" data-i18n="game.placeholderTitle"></h1>
+      <dl class="stats" id="gameStats"></dl>
+      <p class="note" data-i18n="game.placeholderNote"></p>
+      <button type="button" class="btn" id="backBtn" data-i18n="game.backToTitle"></button>
+    </section>
+  </main>
+</div>
+
+<!-- Order matters: language system, texts (Japanese first = first in the switch), rules, then the screens -->
+<script src="js/i18n.js"></script>
+<script src="lang/ja.js"></script>
+<script src="lang/en.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

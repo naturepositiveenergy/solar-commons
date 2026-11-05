@@ -95,7 +95,7 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 <div class="wrap">
 <header>
   <h1>Solar Commons balancing simulator</h1>
-  <p>Tests the numbers of design document v0.3. All values are placeholders for game balance, not real cost, yield or permitting data.</p>
+  <p>Tests the numbers of design document v0.4, using the same rules engine as the game (js/engine.js). All values are placeholders for game balance, not real cost, yield or permitting data.</p>
   <div class="strip" aria-hidden="true"><span style="background:var(--careful)"></span><span style="background:var(--balanced)"></span><span style="background:var(--pollen)"></span><span style="background:var(--fast)"></span></div>
 </header>
 <nav role="tablist">
@@ -128,459 +128,26 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 
 <section id="tab-params" hidden>
   <div class="row" style="margin-bottom:16px">
-    <button class="act" id="resetBtn">Reset to v0.3 values</button>
-    <button class="act" id="suggestBtn">Load suggested balance</button>
+    <button class="act" id="resetBtn">Reset to v0.4 values</button>
     <button class="act" id="exportBtn">Export as JSON</button>
     <button class="act" id="importBtn">Import JSON</button>
   </div>
-  <p class="muted" style="margin-top:0">Values differing from v0.3 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
+  <p class="muted" style="margin-top:0">Values differing from v0.4 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
   <div id="jsonBox" hidden><textarea id="jsonText" aria-label="Parameters as JSON"></textarea><p class="msg" id="jsonMsg"></p></div>
   <div id="paramForm"></div>
 </section>
 </div>
 
+<!-- Shared files: language system, English texts and the game rules (same engine as the game) -->
+<script src="../js/i18n.js"></script>
+<script src="../lang/en.js"></script>
+<script src="../js/engine.js"></script>
 <script>
-// ===== Solar Commons simulation engine (v0.3 rules) =====
-const PARAM_DEFS = [
-  // group, key, label, default, step
-  ['Game', 'turns', 'Turns per scenario', 20, 1],
-  ['Game', 'startMoney', 'Start money', 100, 5],
-  ['Game', 'apPerTurn', 'Action points per turn', 3, 1],
-  ['Game', 'startTrust', 'Start trust', 50, 5],
-  ['Game', 'startRep', 'Start reputation', 30, 5],
-  ['Game', 'maxTiles', 'Tiles per site', 100, 10],
-  ['Game', 'capTarget', 'Capacity target for grade above D', 5, 1],
-  ['Game', 'eventChance', 'Event chance per turn', 0.25, 0.05],
-
-  ['Tiles', 'denseCost', 'Dense panel cost', 3, 0.5],
-  ['Tiles', 'denseCap', 'Dense panel capacity', 1.0, 0.1],
-  ['Tiles', 'wideCost', 'Wide panel cost', 3, 0.5],
-  ['Tiles', 'wideCap', 'Wide panel capacity', 0.7, 0.1],
-  ['Tiles', 'wideB', 'Wide panel B points', 1, 1],
-  ['Tiles', 'meadowCost', 'Meadow cost', 1, 0.5],
-  ['Tiles', 'meadowB', 'Meadow B points', 2, 1],
-  ['Tiles', 'hedgeCost', 'Hedge cost', 1, 0.5],
-  ['Tiles', 'hedgeB', 'Hedge B points', 3, 1],
-  ['Tiles', 'pondCost', 'Pond cost', 2, 0.5],
-  ['Tiles', 'pondB', 'Pond B points', 4, 1],
-  ['Tiles', 'corridorCost', 'Corridor cost', 1, 0.5],
-  ['Tiles', 'corridorB', 'Corridor B points', 2, 1],
-  ['Tiles', 'diversityBonus', 'B bonus per extra measure type', 5, 1],
-  ['Tiles', 'mowingB', 'Extensive mowing B points', 5, 1],
-  ['Tiles', 'mowingCost', 'Extensive mowing cost per turn', 0.5, 0.5],
-  ['Tiles', 'grazingB', 'Grazing B points', 8, 1],
-  ['Tiles', 'grazingCost', 'Grazing cost per turn', 1, 0.5],
-
-  ['Sites', 'permit_farmland', 'Base permit turns: farmland', 3, 1],
-  ['Sites', 'permit_agri', 'Base permit turns: agrivoltaics', 4, 1],
-  ['Sites', 'permit_forest', 'Base permit turns: forest', 5, 1],
-  ['Sites', 'permit_brownfield', 'Base permit turns: brownfield', 2, 1],
-  ['Sites', 'permit_reservoir', 'Base permit turns: reservoir', 4, 1],
-  ['Sites', 'risk_farmland', 'Site risk: farmland', 1.0, 0.1],
-  ['Sites', 'risk_agri', 'Site risk: agrivoltaics', 0.8, 0.1],
-  ['Sites', 'risk_forest', 'Site risk: forest', 1.6, 0.1],
-  ['Sites', 'risk_brownfield', 'Site risk: brownfield', 0.6, 0.1],
-  ['Sites', 'risk_reservoir', 'Site risk: reservoir', 0.9, 0.1],
-  ['Sites', 'farmlandExtra', '農地転用 extra turns', 1, 1],
-  ['Sites', 'forestExtra', '林地開発許可 extra turns', 2, 1],
-  ['Sites', 'forestBMod', 'Forest B start modifier', -30, 5],
-  ['Sites', 'drainageCost', 'Forest drainage cost share', 0.2, 0.05],
-  ['Sites', 'promoChance', 'Chance a site is in a promotion zone', 0.2, 0.05],
-  ['Sites', 'promoTurns', 'Promotion zone permit turns saved', 1, 1],
-  ['Sites', 'promoRisk', 'Promotion zone risk multiplier', 0.7, 0.1],
-  ['Sites', 'promoA', 'Promotion zone A bonus', 10, 5],
-
-  ['Community', 'genuineGain', 'Genuine 説明会: S gain (all)', 10, 5],
-  ['Community', 'visitGain', 'Individual visit: S gain', 20, 5],
-  ['Community', 'tourGain', 'Site tour: S gain (nature, elderly)', 15, 5],
-  ['Community', 'fundGain', 'Citizen fund: S gain (all)', 15, 5],
-  ['Community', 'fundShare', 'Citizen fund share of cost and revenue', 0.2, 0.05],
-  ['Community', 'benefitGain', 'Benefit agreement: S gain (all)', 10, 5],
-  ['Community', 'benefitCost', 'Benefit agreement cost per turn', 2, 0.5],
-  ['Community', 'silenceDrift', 'Silence during permitting: S loss', 10, 1],
-  ['Community', 'matchBonus', 'Design matching S bonus', 15, 5],
-  ['Community', 'agriFarmerBonus', 'Agrivoltaics: farmer S bonus', 20, 5],
-  ['Community', 'forestPenalty', 'Forest: elderly and nature S penalty', 20, 5],
-
-  ['Permitting', 'objBase', 'Objection base probability', 0.4, 0.05],
-  ['Permitting', 'objDelay', 'Objection delay (turns)', 1, 1],
-  ['Permitting', 'objSPenalty', 'Objection S penalty (all)', 5, 1],
-  ['Permitting', 'maxObjections', 'Objections until cancellation', 3, 1],
-  ['Permitting', 'cancelA', 'Cancellation if A below', 20, 5],
-  ['Permitting', 'cancelTrust', 'Trust loss on cancellation', 15, 5],
-  ['Permitting', 'permitAThreshold', 'Extra permit time if A below', 60, 5],
-  ['Permitting', 'permitAStep', 'One extra turn per A points below', 15, 1],
-  ['Permitting', 'earlyBonus', 'Early genuine 説明会 turns saved', 1, 1],
-  ['Permitting', 'planningShare', 'Planning cost share (lost on cancel)', 0.1, 0.05],
-
-  ['Operation', 'buildTurns', 'Construction turns', 2, 1],
-  ['Operation', 'revMult', 'Revenue per capacity unit per turn', 2, 0.1],
-  ['Operation', 'fipThreshold', 'FIP from capacity', 30, 5],
-  ['Operation', 'fipMin', 'FIP revenue factor min', 0.8, 0.05],
-  ['Operation', 'fipMax', 'FIP revenue factor max', 1.2, 0.05],
-  ['Operation', 'decomShare', 'Decommissioning reserve share', 0.05, 0.01],
-  ['Operation', 'bGrowth', 'B growth per turn (share of gap)', 0.2, 0.05],
-  ['Operation', 'cheapDiscount', 'Cheap build discount', 0.3, 0.05],
-  ['Operation', 'cheapDamageMult', 'Cheap build damage multiplier', 2, 0.5],
-  ['Operation', 'sellMult', 'Sale price (× build cost)', 1.5, 0.1],
-  ['Operation', 'sellTrustPenalty', 'Trust loss 2 turns after sale', 5, 1],
-
-  ['Trust', 'strikeLimit', 'Strikes until 条例', 2, 1],
-  ['Trust', 'trustOrdinance', '条例 if trust below', 30, 5],
-  ['Trust', 'ordinanceTurns', '条例 extra permit turns', 2, 1],
-  ['Trust', 'ordinanceA', '条例: 自治会 consent needs A ≥', 60, 5],
-  ['Trust', 'rivalTrust', 'Rival bad project: trust loss', 10, 5],
-  ['Trust', 'loseTrust', 'Game lost if trust below', 10, 5],
-
-  ['Events', 'typhoonDamage', 'Typhoon / heavy rain damage', 5, 1],
-  ['Events', 'hedgesProtect', 'Hedges needed for typhoon protection', 3, 1],
-  ['Events', 'landslideDamage', 'Landslide damage (forest)', 15, 1],
-  ['Events', 'landslideTrust', 'Landslide trust loss (cheap build)', 10, 5],
-  ['Events', 'curtail', 'Curtailment revenue factor', 0.7, 0.05],
-  ['Events', 'policyLow', 'Policy change: low factor', 0.8, 0.05],
-  ['Events', 'policyHigh', 'Policy change: high factor', 1.2, 0.05],
-  ['Events', 'mediaShift', 'Local media: S shift', 10, 5],
-  ['Events', 'rareB', 'Rare species needs B ≥', 60, 5],
-  ['Events', 'rareR', 'Rare species: reputation gain', 10, 5],
-
-  ['Scoring', 'gradeS', 'Grade S from score', 13, 1],
-  ['Scoring', 'gradeA', 'Grade A from score', 10, 1],
-  ['Scoring', 'gradeB', 'Grade B from score', 7, 1],
-  ['Scoring', 'gradeC', 'Grade C from score', 4, 1],
-];
-
-function defaultParams() {
-  const p = {};
-  PARAM_DEFS.forEach(d => { p[d[1]] = d[3]; });
-  return p;
-}
-
-const SITE_TYPES = ['farmland', 'agri', 'forest', 'brownfield', 'reservoir'];
-const SITE_NAMES = {
-  farmland: 'Abandoned farmland (耕作放棄地)',
-  agri: 'Agrivoltaics (営農型)',
-  forest: 'Forested slope',
-  brownfield: 'Brownfield',
-  reservoir: 'Reservoir (floating)'
-};
-const RESIDENTS = ['Farmer', 'Elderly resident', 'Young family', 'Nature group', '自治会 leader'];
-const TILE_KEYS = ['dense', 'wide', 'meadow', 'hedge', 'pond', 'corridor'];
-
-function rng(seed) {
-  let s = seed >>> 0;
-  return function () {
-    s = (s + 0x6D2B79F5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-
-function calcDesign(d, site, P) {
-  const n = k => d[k] || 0;
-  const cap = n('dense') * P.denseCap + n('wide') * P.wideCap;
-  let cost = n('dense') * P.denseCost + n('wide') * P.wideCost + n('meadow') * P.meadowCost +
-    n('hedge') * P.hedgeCost + n('pond') * P.pondCost + n('corridor') * P.corridorCost;
-  if (site === 'forest') cost *= (1 + P.drainageCost);
-  if (d.cheap) cost *= (1 - P.cheapDiscount);
-  let pts = n('wide') * P.wideB + n('meadow') * P.meadowB + n('hedge') * P.hedgeB +
-    n('pond') * P.pondB + n('corridor') * P.corridorB;
-  let types = ['wide', 'meadow', 'hedge', 'pond', 'corridor'].filter(k => n(k) > 0).length;
-  if (d.mgmt === 'mowing') { pts += P.mowingB; types++; }
-  if (d.mgmt === 'grazing') { pts += P.grazingB; types++; }
-  const mod = site === 'forest' ? P.forestBMod : 0;
-  const bTarget = Math.min(100, pts + P.diversityBonus * Math.max(0, types - 1)) + mod;
-  const tiles = TILE_KEYS.reduce((s, k) => s + n(k), 0);
-  const mgmtCost = d.mgmt === 'mowing' ? P.mowingCost : d.mgmt === 'grazing' ? P.grazingCost : 0;
-  return { cap, cost, bTarget, types, tiles, mgmtCost, mod };
-}
-
-function newGame(P, seed) {
-  const g = {
-    P, r: rng(seed), turn: 1, money: P.startMoney, ap: P.apPerTurn, T: P.startTrust, R: P.startRep,
-    strikes: 0, ordinance: false, revFactor: 1, curtail: 1, projects: [], log: [], hist: [],
-    negTurns: 0, over: false, lost: null, nextId: 1, cancellations: 0, objectionsTotal: 0
-  };
-  genSites(g);
-  g.hist.push({ money: g.money, T: g.T });
-  return g;
-}
-
-function log(g, msg) { g.log.push({ turn: g.turn, msg }); }
-
-function genSites(g) {
-  const pool = SITE_TYPES.filter(s => !(g.ordinance && s === 'forest'));
-  const out = [];
-  const avail = pool.slice();
-  for (let i = 0; i < 3 && avail.length; i++) {
-    const idx = Math.floor(g.r() * avail.length);
-    out.push({ type: avail[idx], promo: g.r() < g.P.promoChance });
-    avail.splice(idx, 1);
-  }
-  g.sites = out;
-}
-
-function effS(p, P) {
-  const d = p.design;
-  const m = [
-    p.site === 'agri' || (p.site === 'farmland' && (d.wide || 0) >= (d.dense || 0) && (d.wide || 0) > 0),
-    !d.cheap && (d.hedge || 0) >= 3 && p.site !== 'forest',
-    p.fund || p.benefit,
-    p.calc.bTarget >= 40,
-    p.genuineBefore
-  ];
-  return p.S.map((s, i) => clamp(s + (m[i] ? P.matchBonus : 0), -100, 100));
-}
-function matches(p, P) { return effS(p, P).map((v, i) => v !== clamp(p.S[i], -100, 100)); }
-function acceptance(p, P) {
-  const e = effS(p, P);
-  return clamp(50 + (e.reduce((a, b) => a + b, 0) / e.length) / 2, 0, 100);
-}
-function shiftAll(p, v) { p.S = p.S.map(s => clamp(s + v, -100, 100)); }
-
-function startProject(g, siteIdx, design) {
-  const P = g.P;
-  const site = g.sites[siteIdx];
-  if (!site) return { ok: false, msg: 'No such site.' };
-  const calc = calcDesign(design, site.type, P);
-  if (calc.tiles > P.maxTiles) return { ok: false, msg: `Design uses ${calc.tiles} tiles, the site has ${P.maxTiles}.` };
-  if (calc.cap <= 0) return { ok: false, msg: 'Add at least one panel tile.' };
-  const base = (g.T - 50) * 2;
-  const S = [base, base, base, base, base];
-  if (site.type === 'agri') S[0] += P.agriFarmerBonus;
-  if (site.type === 'forest') { S[1] -= P.forestPenalty; S[3] -= P.forestPenalty; }
-  const p = {
-    id: g.nextId++, site: site.type, promo: site.promo, promoActive: false, design: { ...design }, calc,
-    S: S.map(s => clamp(s, -100, 100)), status: 'design', genuineBefore: false, genuineAny: false,
-    fund: false, benefit: false, objections: 0, engaged: false, damaged: false, struck: false,
-    permitLeft: 0, buildLeft: 0, planningPaid: 0, B: calc.mod, finalA: null, sellTimer: 0, waitLogged: false
-  };
-  g.projects.push(p);
-  g.sites.splice(siteIdx, 1);
-  log(g, `Project ${p.id} started: ${SITE_NAMES[p.site]}${p.promo ? ', in promotion zone' : ''}. Capacity ${p.calc.cap.toFixed(1)}, cost ${p.calc.cost.toFixed(1)}.`);
-  return { ok: true, p };
-}
-
-const ACTIONS = {
-  genuine: { ap: 1, label: 'Genuine 説明会' },
-  visit: { ap: 1, label: 'Individual visit' },
-  tour: { ap: 1, label: 'Site tour with nature expert' },
-  fund: { ap: 2, label: 'Citizen fund' },
-  benefit: { ap: 1, label: 'Benefit agreement' }
-};
-
-function doAction(g, p, a) {
-  const P = g.P, A = ACTIONS[a];
-  if (!['design', 'permitting', 'approved'].includes(p.status)) return { ok: false, msg: 'Engagement is possible during design and permitting.' };
-  if (g.ap < A.ap) return { ok: false, msg: `Needs ${A.ap} AP, ${g.ap} left.` };
-  if (a === 'fund' && p.fund) return { ok: false, msg: 'Citizen fund already set up.' };
-  if (a === 'benefit' && p.benefit) return { ok: false, msg: 'Benefit agreement already signed.' };
-  g.ap -= A.ap;
-  p.engaged = true;
-  if (a === 'genuine') { shiftAll(p, P.genuineGain); p.genuineAny = true; if (p.status === 'design') p.genuineBefore = true; }
-  if (a === 'visit') { const e = effS(p, P); let i = e.indexOf(Math.min(...e)); p.S[i] = clamp(p.S[i] + P.visitGain, -100, 100); }
-  if (a === 'tour') { p.S[1] = clamp(p.S[1] + P.tourGain, -100, 100); p.S[3] = clamp(p.S[3] + P.tourGain, -100, 100); }
-  if (a === 'fund') { shiftAll(p, P.fundGain); p.fund = true; }
-  if (a === 'benefit') { shiftAll(p, P.benefitGain); p.benefit = true; }
-  return { ok: true };
-}
-
-function playerCost(p, P) { return p.calc.cost * (p.fund ? 1 - P.fundShare : 1); }
-
-function submit(g, p) {
-  const P = g.P;
-  if (p.status !== 'design') return { ok: false, msg: 'Only projects in design can be submitted.' };
-  const plan = playerCost(p, P) * P.planningShare;
-  if (g.money < plan) return { ok: false, msg: `Planning cost ${plan.toFixed(1)} exceeds money.` };
-  g.money -= plan; p.planningPaid = plan;
-  if (p.promo && p.calc.bTarget >= 40 && (p.fund || p.benefit)) { p.promoActive = true; shiftAll(p, P.promoA * 2); }
-  const A = acceptance(p, P);
-  let D = P['permit_' + p.site] + (p.site === 'farmland' ? P.farmlandExtra : 0) + (p.site === 'forest' ? P.forestExtra : 0)
-    + (g.ordinance ? P.ordinanceTurns : 0) + Math.max(0, Math.ceil((P.permitAThreshold - A) / P.permitAStep))
-    - (p.genuineBefore ? P.earlyBonus : 0) - (p.promoActive ? P.promoTurns : 0);
-  p.permitLeft = Math.max(1, D);
-  p.status = 'permitting';
-  log(g, `Project ${p.id} submitted (formal 説明会 held${p.genuineBefore ? ', genuine dialogue before' : ''}). Permitting ${p.permitLeft} turns, A ${A.toFixed(0)}.`);
-  return { ok: true };
-}
-
-function sell(g, p) {
-  if (p.status !== 'operating') return { ok: false, msg: 'Only operating parks can be sold.' };
-  const price = p.calc.cost * g.P.sellMult;
-  g.money += price; p.status = 'sold'; p.sellTimer = 2;
-  log(g, `Project ${p.id} sold for ${price.toFixed(1)}.`);
-  return { ok: true };
-}
-
-function strike(g, why) {
-  g.strikes++;
-  log(g, `Regional strike (${why}). Strikes: ${g.strikes}.`);
-}
-
-function checkOrdinance(g) {
-  if (!g.ordinance && (g.strikes >= g.P.strikeLimit || g.T < g.P.trustOrdinance)) {
-    g.ordinance = true;
-    log(g, 'The municipality enacts a solar ordinance (条例): longer permits, 自治会 consent required, forest sites banned.');
-  }
-}
-
-function cancel(g, p, why) {
-  p.status = 'cancelled'; g.cancellations++;
-  g.T -= g.P.cancelTrust;
-  log(g, `Project ${p.id} cancelled (${why}). Trust −${g.P.cancelTrust}.`);
-  strike(g, 'cancelled project');
-}
-
-function rollEvent(g) {
-  const P = g.P;
-  g.curtail = 1;
-  if (g.r() >= P.eventChance) return;
-  const ev = Math.floor(g.r() * 8);
-  const live = g.projects.filter(p => p.status === 'building' || p.status === 'operating');
-  if (ev === 0) {
-    let hit = 0;
-    live.forEach(p => {
-      if ((p.design.hedge || 0) < P.hedgesProtect) {
-        g.money -= P.typhoonDamage * (p.design.cheap ? P.cheapDamageMult : 1); p.damaged = true; hit++;
-        if (p.design.cheap && !p.struck) { p.struck = true; strike(g, `cheap build damaged, project ${p.id}`); }
-      }
-    });
-    log(g, `Event: typhoon. ${hit} park(s) damaged.`);
-  } else if (ev === 1) {
-    let hit = 0;
-    live.forEach(p => {
-      if (p.site === 'forest') {
-        g.money -= P.landslideDamage * (p.design.cheap ? P.cheapDamageMult : 1); p.damaged = true; hit++;
-        if (p.design.cheap) { g.T -= P.landslideTrust; if (!p.struck) { p.struck = true; strike(g, `landslide at project ${p.id}`); } }
-      } else if (p.design.cheap) {
-        g.money -= P.typhoonDamage * P.cheapDamageMult; p.damaged = true; hit++;
-        if (!p.struck) { p.struck = true; strike(g, `runoff damage at cheap build ${p.id}`); }
-      }
-    });
-    log(g, `Event: heavy rain. ${hit} park(s) damaged.`);
-  } else if (ev === 2) {
-    const c = g.projects.filter(p => p.status === 'permitting' || p.status === 'building');
-    if (c.length) {
-      const p = c[Math.floor(g.r() * c.length)], d = 1 + Math.floor(g.r() * 3);
-      if (p.status === 'permitting') p.permitLeft += d; else p.buildLeft += d;
-      log(g, `Event: grid connection delay, project ${p.id} +${d} turns.`);
-    } else log(g, 'Event: grid connection delays in the region (no effect).');
-  } else if (ev === 3) {
-    g.curtail = P.curtail; log(g, 'Event: curtailment (出力制御) this turn.');
-  } else if (ev === 4) {
-    const f = g.r() < 0.5 ? P.policyLow : P.policyHigh;
-    g.revFactor = clamp(g.revFactor * f, 0.5, 1.5);
-    log(g, `Event: policy change, revenue ×${f}.`);
-  } else if (ev === 5) {
-    g.T -= P.rivalTrust; log(g, `Event: rival developer's bad project. Trust −${P.rivalTrust}.`); strike(g, 'rival project');
-  } else if (ev === 6) {
-    g.projects.filter(p => p.status === 'design' || p.status === 'permitting').forEach(p => {
-      const A = acceptance(p, P); shiftAll(p, A >= 50 ? P.mediaShift : -P.mediaShift);
-    });
-    log(g, 'Event: local media story amplifies current opinion.');
-  } else {
-    if (g.projects.some(p => p.status === 'operating' && p.B >= P.rareB)) { g.R += P.rareR; log(g, `Event: rare species sighted in your park. Reputation +${P.rareR}.`); }
-    else log(g, 'Event: rare species search, nothing found.');
-  }
-}
-
-function endTurn(g) {
-  if (g.over) return;
-  const P = g.P;
-  rollEvent(g);
-  g.projects.forEach(p => {
-    if (p.benefit && !['cancelled', 'sold'].includes(p.status)) g.money -= P.benefitCost;
-  });
-  g.projects.forEach(p => {
-    const st = p.status;
-    if (st === 'permitting') {
-      if (!p.engaged) shiftAll(p, -P.silenceDrift);
-      let A = acceptance(p, P);
-      const prob = P.objBase * ((100 - A) / 100) * P['risk_' + p.site] * (p.promoActive ? P.promoRisk : 1);
-      if (g.r() < prob) {
-        p.objections++; g.objectionsTotal++; p.permitLeft += P.objDelay; shiftAll(p, -P.objSPenalty);
-        log(g, `Objection against project ${p.id} (${p.objections}). Delay +${P.objDelay}.`);
-      }
-      A = acceptance(p, P);
-      if (p.objections >= P.maxObjections) return cancel(g, p, 'too many objections');
-      if (A < P.cancelA) return cancel(g, p, `acceptance ${A.toFixed(0)}`);
-      p.permitLeft--;
-      if (p.permitLeft <= 0) {
-        if (g.ordinance && A < P.ordinanceA) {
-          p.objections++; g.objectionsTotal++; p.permitLeft = 1;
-          log(g, `自治会 consent refused for project ${p.id} (A ${A.toFixed(0)}).`);
-          if (p.objections >= P.maxObjections) return cancel(g, p, 'consent refused');
-        } else { p.status = 'approved'; log(g, `Project ${p.id} approved.`); }
-      }
-    } else if (st === 'approved') {
-      const need = playerCost(p, P) - p.planningPaid;
-      if (g.money >= need) {
-        g.money -= need; p.status = 'building'; p.buildLeft = P.buildTurns;
-        log(g, `Construction of project ${p.id} started (paid ${need.toFixed(1)}).`);
-      } else if (!p.waitLogged) { p.waitLogged = true; log(g, `Project ${p.id} waits for funds (${need.toFixed(1)} needed).`); }
-    } else if (st === 'building') {
-      p.buildLeft--;
-      if (p.buildLeft <= 0) {
-        p.status = 'operating';
-        const A = acceptance(p, P); p.finalA = A;
-        const dT = (A - 50) / 5 + p.calc.bTarget / 20;
-        g.T += dT; g.R += g.T / 10;
-        log(g, `Project ${p.id} operating. A ${A.toFixed(0)}, trust ${dT >= 0 ? '+' : ''}${dT.toFixed(1)}.`);
-        if (A < 30) strike(g, `low acceptance at project ${p.id}`);
-        if (p.site === 'forest' && p.calc.bTarget < 0) strike(g, `forest park ${p.id} with negative biodiversity`);
-      }
-    } else if (st === 'operating') {
-      const fip = p.calc.cap >= P.fipThreshold ? P.fipMin + g.r() * (P.fipMax - P.fipMin) : 1;
-      const gross = p.calc.cap * P.revMult * g.revFactor * fip * g.curtail;
-      const net = gross - p.calc.mgmtCost - (p.fund ? gross * P.fundShare : 0) - gross * P.decomShare;
-      g.money += net;
-      p.B += P.bGrowth * (p.calc.bTarget - p.B);
-    } else if (st === 'sold') {
-      if (p.sellTimer > 0) { p.sellTimer--; if (p.sellTimer === 0) { g.T -= P.sellTrustPenalty; log(g, `New owner neglects former project ${p.id}. Trust −${P.sellTrustPenalty}.`); } }
-    }
-  });
-  g.T = clamp(g.T, 0, 100); g.R = clamp(g.R, 0, 100);
-  checkOrdinance(g);
-  g.negTurns = g.money < 0 ? g.negTurns + 1 : 0;
-  if (g.negTurns >= 2) { g.lost = 'bankrupt'; log(g, 'Game lost: money below 0 for 2 turns.'); }
-  if (g.T < P.loseTrust) { g.lost = 'trust'; log(g, 'Game lost: trust collapsed.'); }
-  g.projects.forEach(p => { p.engaged = false; });
-  g.hist.push({ money: g.money, T: g.T });
-  g.turn++; g.ap = P.apPerTurn;
-  genSites(g);
-  if (g.lost || g.turn > P.turns) g.over = true;
-}
-
-function scorePark(p, P) {
-  const d = p.design;
-  const types = ['meadow', 'hedge', 'pond', 'corridor'].filter(k => (d[k] || 0) > 0).length + ((d.wide || 0) > 0 ? 1 : 0);
-  const s = {
-    site: ['brownfield', 'farmland', 'agri'].includes(p.site) || p.promoActive ? 2 : p.site === 'reservoir' ? 1 : 0,
-    natAct: types >= 3 && d.mgmt !== 'none' ? 2 : types >= 1 ? 1 : 0,
-    natRes: p.B >= 60 ? 2 : p.B >= 30 ? 1 : 0,
-    safety: !d.cheap && (d.hedge || 0) >= 3 ? 2 : !d.cheap ? 1 : 0,
-    community: p.genuineBefore && p.objections === 0 ? 2 : (p.genuineAny || p.objections <= 1) ? 1 : 0,
-    benefit: p.fund || p.benefit ? 2 : 0,
-    longterm: p.status === 'sold' ? 0 : p.damaged ? 1 : 2
-  };
-  s.total = Object.values(s).reduce((a, b) => a + b, 0);
-  return s;
-}
-
-function scoreGame(g) {
-  const P = g.P;
-  const parks = g.projects.filter(p => p.status === 'operating' || p.status === 'sold');
-  const capBuilt = parks.reduce((s, p) => s + p.calc.cap, 0);
-  const per = parks.map(p => ({ p, s: scorePark(p, P) }));
-  const avg = per.length ? per.reduce((s, x) => s + x.s.total, 0) / per.length : 0;
-  let grade = avg >= P.gradeS ? 'S' : avg >= P.gradeA ? 'A' : avg >= P.gradeB ? 'B' : avg >= P.gradeC ? 'C' : 'D';
-  let note = '';
-  if (g.lost) { grade = 'D'; note = 'Game lost.'; }
-  else if (!parks.length) { grade = 'D'; note = 'No park built.'; }
-  else if (capBuilt < P.capTarget) { grade = 'D'; note = 'Capacity target missed.'; }
-  return { grade, avg, capBuilt, parks: per, note };
-}
+// Engine functions used by the simulator (the rules themselves are in js/engine.js)
+const {
+  defaultParams, RESIDENTS, TILE_KEYS, ACTIONS, calcDesign, newGame, effS, matches, acceptance,
+  startProject, doAction, playerCost, submit, sell, endTurn, scoreGame
+} = SolarEngine;
 
 // ===== Strategy presets =====
 const STRATEGIES = {
@@ -682,10 +249,8 @@ function batch(P, key, runs) {
   return res;
 }
 
-const SUGGESTED = { silenceDrift: 3, revMult: 0.6, capTarget: 15, objBase: 0.25, cancelTrust: 8, rivalTrust: 5, landslideTrust: 5, loseTrust: 5, benefitCost: 1 };
 // node export
-if (typeof module !== 'undefined') module.exports = { defaultParams, batch, runGame, scoreGame, STRATEGIES, PARAM_DEFS };
-
+if (typeof module !== 'undefined') module.exports = { batch, runGame, STRATEGIES };
 </script>
 <script>
 const COLORS = { careful: 'var(--careful)', balanced: 'var(--balanced)', fast: 'var(--fast)' };
@@ -694,19 +259,128 @@ const $ = id => document.getElementById(id);
 const fmt = (v, d = 1) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d);
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const siteName = type => t('site.' + type);
 
 // ---------- params ----------
+// Parameters tab: group, key, label, input step. The default values come from js/engine.js.
+const PARAM_FORM = [
+  ['Game', 'turns', 'Turns per scenario', 1],
+  ['Game', 'startMoney', 'Start money', 5],
+  ['Game', 'apPerTurn', 'Action points per turn', 1],
+  ['Game', 'startTrust', 'Start trust', 5],
+  ['Game', 'startRep', 'Start reputation', 5],
+  ['Game', 'maxTiles', 'Tiles per site', 10],
+  ['Game', 'capTarget', 'Capacity target for grade above D', 1],
+  ['Game', 'eventChance', 'Event chance per turn', 0.05],
+
+  ['Tiles', 'denseCost', 'Dense panel cost', 0.5],
+  ['Tiles', 'denseCap', 'Dense panel capacity', 0.1],
+  ['Tiles', 'wideCost', 'Wide panel cost', 0.5],
+  ['Tiles', 'wideCap', 'Wide panel capacity', 0.1],
+  ['Tiles', 'wideB', 'Wide panel B points', 1],
+  ['Tiles', 'meadowCost', 'Meadow cost', 0.5],
+  ['Tiles', 'meadowB', 'Meadow B points', 1],
+  ['Tiles', 'hedgeCost', 'Hedge cost', 0.5],
+  ['Tiles', 'hedgeB', 'Hedge B points', 1],
+  ['Tiles', 'pondCost', 'Pond cost', 0.5],
+  ['Tiles', 'pondB', 'Pond B points', 1],
+  ['Tiles', 'corridorCost', 'Corridor cost', 0.5],
+  ['Tiles', 'corridorB', 'Corridor B points', 1],
+  ['Tiles', 'diversityBonus', 'B bonus per extra measure type', 1],
+  ['Tiles', 'mowingB', 'Extensive mowing B points', 1],
+  ['Tiles', 'mowingCost', 'Extensive mowing cost per turn', 0.5],
+  ['Tiles', 'grazingB', 'Grazing B points', 1],
+  ['Tiles', 'grazingCost', 'Grazing cost per turn', 0.5],
+
+  ['Sites', 'permit_farmland', 'Base permit turns: farmland', 1],
+  ['Sites', 'permit_agri', 'Base permit turns: agrivoltaics', 1],
+  ['Sites', 'permit_forest', 'Base permit turns: forest', 1],
+  ['Sites', 'permit_brownfield', 'Base permit turns: brownfield', 1],
+  ['Sites', 'permit_reservoir', 'Base permit turns: reservoir', 1],
+  ['Sites', 'risk_farmland', 'Site risk: farmland', 0.1],
+  ['Sites', 'risk_agri', 'Site risk: agrivoltaics', 0.1],
+  ['Sites', 'risk_forest', 'Site risk: forest', 0.1],
+  ['Sites', 'risk_brownfield', 'Site risk: brownfield', 0.1],
+  ['Sites', 'risk_reservoir', 'Site risk: reservoir', 0.1],
+  ['Sites', 'farmlandExtra', '農地転用 extra turns', 1],
+  ['Sites', 'forestExtra', '林地開発許可 extra turns', 1],
+  ['Sites', 'forestBMod', 'Forest B start modifier', 5],
+  ['Sites', 'drainageCost', 'Forest drainage cost share', 0.05],
+  ['Sites', 'promoChance', 'Chance a site is in a promotion zone', 0.05],
+  ['Sites', 'promoTurns', 'Promotion zone permit turns saved', 1],
+  ['Sites', 'promoRisk', 'Promotion zone risk multiplier', 0.1],
+  ['Sites', 'promoA', 'Promotion zone A bonus', 5],
+
+  ['Community', 'genuineGain', 'Genuine 説明会: S gain (all)', 5],
+  ['Community', 'visitGain', 'Individual visit: S gain', 5],
+  ['Community', 'tourGain', 'Site tour: S gain (nature, elderly)', 5],
+  ['Community', 'fundGain', 'Citizen fund: S gain (all)', 5],
+  ['Community', 'fundShare', 'Citizen fund share of cost and revenue', 0.05],
+  ['Community', 'benefitGain', 'Benefit agreement: S gain (all)', 5],
+  ['Community', 'benefitCost', 'Benefit agreement cost per turn', 0.5],
+  ['Community', 'silenceDrift', 'Silence during permitting: S loss', 1],
+  ['Community', 'matchBonus', 'Design matching S bonus', 5],
+  ['Community', 'agriFarmerBonus', 'Agrivoltaics: farmer S bonus', 5],
+  ['Community', 'forestPenalty', 'Forest: elderly and nature S penalty', 5],
+
+  ['Permitting', 'objBase', 'Objection base probability', 0.05],
+  ['Permitting', 'objDelay', 'Objection delay (turns)', 1],
+  ['Permitting', 'objSPenalty', 'Objection S penalty (all)', 1],
+  ['Permitting', 'maxObjections', 'Objections until cancellation', 1],
+  ['Permitting', 'cancelA', 'Cancellation if A below', 5],
+  ['Permitting', 'cancelTrust', 'Trust loss on cancellation', 5],
+  ['Permitting', 'permitAThreshold', 'Extra permit time if A below', 5],
+  ['Permitting', 'permitAStep', 'One extra turn per A points below', 1],
+  ['Permitting', 'earlyBonus', 'Early genuine 説明会 turns saved', 1],
+  ['Permitting', 'planningShare', 'Planning cost share (lost on cancel)', 0.05],
+
+  ['Operation', 'buildTurns', 'Construction turns', 1],
+  ['Operation', 'revMult', 'Revenue per capacity unit per turn', 0.1],
+  ['Operation', 'fipThreshold', 'FIP from capacity', 5],
+  ['Operation', 'fipMin', 'FIP revenue factor min', 0.05],
+  ['Operation', 'fipMax', 'FIP revenue factor max', 0.05],
+  ['Operation', 'decomShare', 'Decommissioning reserve share', 0.01],
+  ['Operation', 'bGrowth', 'B growth per turn (share of gap)', 0.05],
+  ['Operation', 'cheapDiscount', 'Cheap build discount', 0.05],
+  ['Operation', 'cheapDamageMult', 'Cheap build damage multiplier', 0.5],
+  ['Operation', 'sellMult', 'Sale price (× build cost)', 0.1],
+  ['Operation', 'sellTrustPenalty', 'Trust loss 2 turns after sale', 1],
+
+  ['Trust', 'strikeLimit', 'Strikes until 条例', 1],
+  ['Trust', 'trustOrdinance', '条例 if trust below', 5],
+  ['Trust', 'ordinanceTurns', '条例 extra permit turns', 1],
+  ['Trust', 'ordinanceA', '条例: 自治会 consent needs A ≥', 5],
+  ['Trust', 'rivalTrust', 'Rival bad project: trust loss', 5],
+  ['Trust', 'loseTrust', 'Game lost if trust below', 5],
+
+  ['Events', 'typhoonDamage', 'Typhoon / heavy rain damage', 1],
+  ['Events', 'hedgesProtect', 'Hedges needed for typhoon protection', 1],
+  ['Events', 'landslideDamage', 'Landslide damage (forest)', 1],
+  ['Events', 'landslideTrust', 'Landslide trust loss (cheap build)', 5],
+  ['Events', 'curtail', 'Curtailment revenue factor', 0.05],
+  ['Events', 'policyLow', 'Policy change: low factor', 0.05],
+  ['Events', 'policyHigh', 'Policy change: high factor', 0.05],
+  ['Events', 'mediaShift', 'Local media: S shift', 5],
+  ['Events', 'rareB', 'Rare species needs B ≥', 5],
+  ['Events', 'rareR', 'Rare species: reputation gain', 5],
+
+  ['Scoring', 'gradeS', 'Grade S from score', 1],
+  ['Scoring', 'gradeA', 'Grade A from score', 1],
+  ['Scoring', 'gradeB', 'Grade B from score', 1],
+  ['Scoring', 'gradeC', 'Grade C from score', 1],
+];
+
 let P = defaultParams();
 try { const s = localStorage.getItem('sc-params'); if (s) Object.assign(P, JSON.parse(s)); } catch (e) {}
 function saveParams() { try { localStorage.setItem('sc-params', JSON.stringify(P)); } catch (e) {} updateNote(); }
 function changedCount() { const d = defaultParams(); return Object.keys(d).filter(k => d[k] !== P[k]).length; }
-function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v0.3` : 'Using v0.3 values'; }
+function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v0.4` : 'Using v0.4 values'; }
 
 function renderParams() {
   const d = defaultParams(), groups = {};
-  PARAM_DEFS.forEach(x => { (groups[x[0]] = groups[x[0]] || []).push(x); });
+  PARAM_FORM.forEach(x => { (groups[x[0]] = groups[x[0]] || []).push(x); });
   $('paramForm').innerHTML = Object.entries(groups).map(([g, list]) => `<fieldset><legend>${esc(g)}</legend><div class="pgrid">` +
-    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[4]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v0.3: ${d[x[1]]}"></label>`).join('') +
+    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[3]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v0.4: ${d[x[1]]}"></label>`).join('') +
     '</div></fieldset>').join('');
   $('paramForm').querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
     const v = parseFloat(inp.value); if (isNaN(v)) { inp.value = P[inp.dataset.k]; return; }
@@ -714,7 +388,6 @@ function renderParams() {
   }));
 }
 $('resetBtn').onclick = () => { P = defaultParams(); saveParams(); renderParams(); };
-$('suggestBtn').onclick = () => { P = Object.assign(defaultParams(), SUGGESTED); saveParams(); renderParams(); };
 $('exportBtn').onclick = () => { $('jsonBox').hidden = false; $('jsonText').value = JSON.stringify(P, null, 1); $('jsonMsg').textContent = 'Copy this text to save or share the parameter set.'; };
 $('importBtn').onclick = () => {
   if ($('jsonBox').hidden) { $('jsonBox').hidden = false; $('jsonText').value = ''; $('jsonMsg').textContent = 'Paste a parameter set, then select Import JSON again.'; return; }
@@ -802,7 +475,7 @@ function resBars(p) {
   const e = effS(p, G.P), m = matches(p, G.P);
   return RESIDENTS.map((n, i) => {
     const v = e[i], w = Math.abs(v) / 2, left = v >= 0 ? 50 : 50 - w;
-    return `<div class="res"><span>${esc(n)}${m[i] ? ' ✓' : ''}</span><span class="bar"><i style="left:${left}%;width:${w}%;background:${v >= 0 ? 'var(--careful)' : 'var(--fast)'}"></i></span><span style="text-align:right">${Math.round(v)}</span></div>`;
+    return `<div class="res"><span>${esc(t('resident.' + n))}${m[i] ? ' ✓' : ''}</span><span class="bar"><i style="left:${left}%;width:${w}%;background:${v >= 0 ? 'var(--careful)' : 'var(--fast)'}"></i></span><span style="text-align:right">${Math.round(v)}</span></div>`;
   }).join('');
 }
 function projCard(p) {
@@ -815,8 +488,8 @@ function projCard(p) {
   if (p.status === 'operating') info = `B ${fmt(p.B, 0)} of target ${fmt(p.calc.bTarget, 0)}`;
   const d = p.design;
   const designTxt = TILE_KEYS.filter(k => d[k]).map(k => `${d[k]} ${k}`).join(', ') + `, ${d.mgmt}${d.cheap ? ', cheap build' : ''}`;
-  const btns = canEngage ? Object.entries(ACTIONS).map(([k, a]) => `<button class="act" data-a="${k}" data-p="${p.id}" ${G.ap < a.ap || (k === 'fund' && p.fund) || (k === 'benefit' && p.benefit) ? 'disabled' : ''}>${a.label} (${a.ap})</button>`).join('') : '';
-  return `<div class="card st-${p.status}"><h3>Project ${p.id}: ${esc(SITE_NAMES[p.site])}${p.promo ? '<span class="tag">promotion zone</span>' : ''}</h3>
+  const btns = canEngage ? Object.entries(ACTIONS).map(([k, a]) => `<button class="act" data-a="${k}" data-p="${p.id}" ${G.ap < a.ap || (k === 'fund' && p.fund) || (k === 'benefit' && p.benefit) ? 'disabled' : ''}>${esc(t('action.' + k))} (${a.ap})</button>`).join('') : '';
+  return `<div class="card st-${p.status}"><h3>Project ${p.id}: ${esc(siteName(p.site))}${p.promo ? '<span class="tag">promotion zone</span>' : ''}</h3>
     <p class="muted" style="margin:0 0 6px">${STATUS[p.status]}${info ? ', ' + info : ''}. Capacity ${fmt(p.calc.cap)}, cost ${fmt(p.calc.cost)}${p.fund ? ', citizen fund' : ''}${p.benefit ? ', benefit agreement' : ''}.</p>
     <p class="muted" style="margin:0 0 8px;font-size:0.85rem">${esc(designTxt)}</p>
     ${p.status === 'cancelled' || p.status === 'sold' ? '' : `<p style="margin:0 0 4px"><b>Acceptance ${fmt(A, 0)}</b></p>${resBars(p)}`}
@@ -828,7 +501,7 @@ function designForm() {
   const site = G.sites[planIdx]; if (!site) return '';
   const c = calcDesign(draft, site.type, G.P);
   const inputs = TILE_KEYS.map(k => `<label>${k} tiles<input type="number" min="0" max="${G.P.maxTiles}" value="${draft[k]}" data-d="${k}"></label>`).join('');
-  return `<div class="card" style="margin-top:14px"><h3>Plan on ${esc(SITE_NAMES[site.type])}</h3><div class="design">${inputs}
+  return `<div class="card" style="margin-top:14px"><h3>Plan on ${esc(siteName(site.type))}</h3><div class="design">${inputs}
     <label>Management<select data-d="mgmt">${['none', 'mowing', 'grazing'].map(m => `<option ${draft.mgmt === m ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
     <label>Cheap build<select data-d="cheap"><option value="0" ${!draft.cheap ? 'selected' : ''}>no</option><option value="1" ${draft.cheap ? 'selected' : ''}>yes</option></select></label></div>
     <p class="muted" style="margin:0 0 8px">Tiles ${c.tiles}/${G.P.maxTiles}, capacity ${fmt(c.cap)}, cost ${fmt(c.cost)}, biodiversity target ${fmt(c.bTarget, 0)}, running cost ${fmt(c.mgmtCost)}/turn.</p>
@@ -839,7 +512,7 @@ function endScreen() {
   const cats = [['site', 'Site'], ['natAct', 'Nature, actions'], ['natRes', 'Nature, results'], ['safety', 'Safety and landscape'], ['community', 'Community process'], ['benefit', 'Local benefit'], ['longterm', 'Long-term']];
   const sym = v => v === 2 ? '○' : v === 1 ? '△' : '×';
   const tbl = s.parks.length ? `<div class="scroll"><table><thead><tr><th>Park</th>${cats.map(c => `<th>${c[1]}</th>`).join('')}<th>Total</th></tr></thead><tbody>${s.parks.map(x => `<tr><td>Project ${x.p.id}</td>${cats.map(c => `<td>${sym(x.s[c[0]])}</td>`).join('')}<td>${x.s.total}</td></tr>`).join('')}</tbody></table></div>` : '';
-  return `<div class="card" style="margin-top:14px;border-width:2px;border-color:${GRADE_COL[s.grade]}"><h3>Scenario finished: grade ${s.grade}</h3><p style="margin:0 0 8px">Average park score ${fmt(s.avg)}, capacity built ${fmt(s.capBuilt)} (target ${G.P.capTarget}). ${esc(s.note)}</p>${tbl}<div class="row" style="margin-top:10px"><button class="act primary" id="newGame2">New game</button></div></div>`;
+  return `<div class="card" style="margin-top:14px;border-width:2px;border-color:${GRADE_COL[s.grade]}"><h3>Scenario finished: grade ${s.grade}</h3><p style="margin:0 0 8px">Average park score ${fmt(s.avg)}, capacity built ${fmt(s.capBuilt)} (target ${G.P.capTarget}). ${s.note ? esc(t(s.note)) : ''}</p>${tbl}<div class="row" style="margin-top:10px"><button class="act primary" id="newGame2">New game</button></div></div>`;
 }
 function renderPlay() {
   if (!G) { $('play').innerHTML = `<p>Play the scenario yourself, turn by turn, with the current parameters.</p><button class="act primary" id="newGame">Start game</button>`; $('newGame').onclick = newManual; return; }
@@ -856,19 +529,19 @@ function renderPlay() {
     </div>
     ${G.over ? endScreen() : ''}
     <p class="msg" aria-live="polite">${esc(msg)}</p>
-    ${G.over ? '' : `<h2 style="margin-top:4px">Available sites</h2><div class="cards">${G.sites.map((s, i) => `<div class="card"><h3>${esc(SITE_NAMES[s.type])}${s.promo ? '<span class="tag">promotion zone</span>' : ''}</h3><p class="muted" style="margin:0 0 8px">Base permit ${G.P['permit_' + s.type]} turns, site risk ${G.P['risk_' + s.type]}</p><button class="act" data-plan="${i}">Plan a park here</button></div>`).join('')}</div>${planIdx !== null ? designForm() : ''}
+    ${G.over ? '' : `<h2 style="margin-top:4px">Available sites</h2><div class="cards">${G.sites.map((s, i) => `<div class="card"><h3>${esc(siteName(s.type))}${s.promo ? '<span class="tag">promotion zone</span>' : ''}</h3><p class="muted" style="margin:0 0 8px">Base permit ${G.P['permit_' + s.type]} turns, site risk ${G.P['risk_' + s.type]}</p><button class="act" data-plan="${i}">Plan a park here</button></div>`).join('')}</div>${planIdx !== null ? designForm() : ''}
     <div class="row" style="margin:18px 0"><button class="act primary" id="endTurn">End turn</button><button class="act" id="restart">Restart</button></div>`}
     <h2>Projects</h2>${G.projects.length ? `<div class="cards">${[...active, ...G.projects.filter(p => !active.includes(p))].map(projCard).join('')}</div>` : '<p class="muted">No projects yet. Plan a park on one of the available sites.</p>'}
-    <h2>Log</h2><div class="log">${G.log.slice().reverse().map(l => `<p><b>T${l.turn}</b>${esc(l.msg)}</p>`).join('') || '<p class="muted">Nothing has happened yet.</p>'}</div>`;
+    <h2>Log</h2><div class="log">${G.log.slice().reverse().map(l => `<p><b>T${l.turn}</b>${esc(t(l.msg))}</p>`).join('') || '<p class="muted">Nothing has happened yet.</p>'}</div>`;
   const q = s => $('play').querySelectorAll(s);
   q('[data-plan]').forEach(b => b.onclick = () => { planIdx = +b.dataset.plan; msg = ''; renderPlay(); });
   q('[data-d]').forEach(el => el.onchange = () => {
     const k = el.dataset.d; draft[k] = k === 'mgmt' ? el.value : k === 'cheap' ? el.value === '1' : Math.max(0, parseInt(el.value) || 0); renderPlay();
   });
-  q('[data-a]').forEach(b => b.onclick = () => { const r = doAction(G, G.projects.find(p => p.id === +b.dataset.p), b.dataset.a); msg = r.ok ? '' : r.msg; renderPlay(); });
-  q('[data-sub]').forEach(b => b.onclick = () => { const r = submit(G, G.projects.find(p => p.id === +b.dataset.sub)); msg = r.ok ? '' : r.msg; renderPlay(); });
-  q('[data-sell]').forEach(b => b.onclick = () => { const r = sell(G, G.projects.find(p => p.id === +b.dataset.sell)); msg = r.ok ? '' : r.msg; renderPlay(); });
-  const st = $('startProj'); if (st) st.onclick = () => { const r = startProject(G, planIdx, { ...draft }); msg = r.ok ? '' : r.msg; if (r.ok) planIdx = null; renderPlay(); };
+  q('[data-a]').forEach(b => b.onclick = () => { const r = doAction(G, G.projects.find(p => p.id === +b.dataset.p), b.dataset.a); msg = r.ok ? '' : t(r.msg); renderPlay(); });
+  q('[data-sub]').forEach(b => b.onclick = () => { const r = submit(G, G.projects.find(p => p.id === +b.dataset.sub)); msg = r.ok ? '' : t(r.msg); renderPlay(); });
+  q('[data-sell]').forEach(b => b.onclick = () => { const r = sell(G, G.projects.find(p => p.id === +b.dataset.sell)); msg = r.ok ? '' : t(r.msg); renderPlay(); });
+  const st = $('startProj'); if (st) st.onclick = () => { const r = startProject(G, planIdx, { ...draft }); msg = r.ok ? '' : t(r.msg); if (r.ok) planIdx = null; renderPlay(); };
   const cp = $('cancelPlan'); if (cp) cp.onclick = () => { planIdx = null; renderPlay(); };
   const et = $('endTurn'); if (et) et.onclick = () => { endTurn(G); planIdx = null; msg = ''; renderPlay(); };
   const rs = $('restart'); if (rs) rs.onclick = newManual;

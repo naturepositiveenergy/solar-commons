@@ -4,7 +4,9 @@ Browser game (PWA) about community-involved, biodiversity-friendly solar parks i
 Audience: workshop participants, students, stakeholders, general public. Languages: Japanese and English.
 
 - Design document: docs/design.md (current rules, v0.4)
-- Balancing engine and simulator: prototype/simulator.html (reference implementation of the rules)
+- Game rules engine: js/engine.js (reference implementation of the rules, shared by the game and the simulator)
+- Balancing simulator: prototype/simulator.html
+- Game texts: lang/en.js and lang/ja.js
 
 ## Rules
 
