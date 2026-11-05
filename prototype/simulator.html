@@ -95,7 +95,7 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 <div class="wrap">
 <header>
   <h1>Solar Commons balancing simulator</h1>
-  <p>Tests the numbers of design document v0.4, using the same rules engine as the game (js/engine.js). All values are placeholders for game balance, not real cost, yield or permitting data.</p>
+  <p>Tests the numbers of design document v0.5, using the same rules engine as the game (js/engine.js). All values are placeholders for game balance, not real cost, yield or permitting data.</p>
   <div class="strip" aria-hidden="true"><span style="background:var(--careful)"></span><span style="background:var(--balanced)"></span><span style="background:var(--pollen)"></span><span style="background:var(--fast)"></span></div>
 </header>
 <nav role="tablist">
@@ -128,11 +128,11 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 
 <section id="tab-params" hidden>
   <div class="row" style="margin-bottom:16px">
-    <button class="act" id="resetBtn">Reset to v0.4 values</button>
+    <button class="act" id="resetBtn">Reset to v0.5 values</button>
     <button class="act" id="exportBtn">Export as JSON</button>
     <button class="act" id="importBtn">Import JSON</button>
   </div>
-  <p class="muted" style="margin-top:0">Values differing from v0.4 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
+  <p class="muted" style="margin-top:0">Values differing from v0.5 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
   <div id="jsonBox" hidden><textarea id="jsonText" aria-label="Parameters as JSON"></textarea><p class="msg" id="jsonMsg"></p></div>
   <div id="paramForm"></div>
 </section>
@@ -374,13 +374,13 @@ let P = defaultParams();
 try { const s = localStorage.getItem('sc-params'); if (s) Object.assign(P, JSON.parse(s)); } catch (e) {}
 function saveParams() { try { localStorage.setItem('sc-params', JSON.stringify(P)); } catch (e) {} updateNote(); }
 function changedCount() { const d = defaultParams(); return Object.keys(d).filter(k => d[k] !== P[k]).length; }
-function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v0.4` : 'Using v0.4 values'; }
+function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v0.5` : 'Using v0.5 values'; }
 
 function renderParams() {
   const d = defaultParams(), groups = {};
   PARAM_FORM.forEach(x => { (groups[x[0]] = groups[x[0]] || []).push(x); });
   $('paramForm').innerHTML = Object.entries(groups).map(([g, list]) => `<fieldset><legend>${esc(g)}</legend><div class="pgrid">` +
-    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[3]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v0.4: ${d[x[1]]}"></label>`).join('') +
+    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[3]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v0.5: ${d[x[1]]}"></label>`).join('') +
     '</div></fieldset>').join('');
   $('paramForm').querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
     const v = parseFloat(inp.value); if (isNaN(v)) { inp.value = P[inp.dataset.k]; return; }

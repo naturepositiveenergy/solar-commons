@@ -1,6 +1,8 @@
 # Solar Commons (working title)
 
-**Game Design Document v0.4** | Christian Doedt | Draft for discussion
+**Game Design Document v0.5** | Christian Doedt | Draft for discussion
+
+*Changes in v0.5: before submission, a design can be changed and a project can be dropped without penalty (section 5). All numbers are unchanged from v0.4.*
 
 ## 1. Concept
 
@@ -59,6 +61,8 @@ Each site has a 20% chance of lying in a promotion zone (促進区域). If the p
 | Wildlife corridor | 1 | 0 | 2 |
 
 **Management** (one choice per park): none, extensive mowing (B +5, cost 0.5 per turn), or grazing (B +8, cost 1 per turn). Mowing and grazing include no herbicides.
+
+**Changing plans:** until a project is submitted, its design can be changed at any time, for example after talking with residents. A project that has not been submitted can also be dropped without penalty: the site and any action points already spent are lost, and a benefit agreement ends.
 
 **Residents:** farmer, elderly resident, young family, nature group, 自治会 leader, each with support S from −100 to +100. Starting S = (T − 50) × 2, so a new project starts with A = T.
 

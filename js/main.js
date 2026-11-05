@@ -1,11 +1,10 @@
-// Solar Commons: start screen and switching between screens.
+// Solar Commons: start screen, language switch and switching between screens.
 // Texts come from the language files (through js/i18n.js), the rules from js/engine.js.
 
-(function () {
+(function (root) {
   'use strict';
-
+  const SC = root.SC = root.SC || {};
   const $ = id => document.getElementById(id);
-  let game = null;   // the current game, made by the engine (null on the start screen)
 
   // ----- Decorative mini park on the start screen -----
   // One letter per tile: d dense panel, w wide-spaced panel, m meadow, h hedge, p pond, c corridor
@@ -49,51 +48,79 @@
   }
 
   // ----- Screens -----
+  let current = 'start';
   function showScreen(name) {
+    current = name;
     document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'screen-' + name; });
+    $('toTitleBtn').hidden = name !== 'game';
+    if (name === 'start') updateStartButtons();
+    window.scrollTo(0, 0);
     // Move keyboard and screen reader focus to the new screen's heading
     $('screen-' + name).querySelector('h1').focus();
   }
 
-  function startNewGame() {
-    game = SolarEngine.newGame(SolarEngine.defaultParams(), Date.now() % 1e9);
-    drawGameStats();
+  // With a saved game, "Continue game" is the main button and "New game" the second one.
+  function updateStartButtons() {
+    const saved = SC.session.hasSaved();
+    $('continueBtn').hidden = !saved;
+    $('savedNote').hidden = !saved;
+    $('newGameBtn').classList.toggle('btn-primary', !saved);
+  }
+
+  function newGame() {
+    SC.session.start();
+    SC.gameScreen.render();
     showScreen('game');
   }
 
-  function backToTitle() {
-    game = null;
+  async function onNewGameClick() {
+    if (SC.session.hasSaved()) {
+      const ok = await SC.ui.confirmDialog({
+        title: t('start.replaceTitle'), text: t('start.replaceText'), ok: t('start.replaceOk'), cancel: t('common.cancel')
+      }, $('newGameBtn'));
+      if (!ok) return;
+    }
+    newGame();
+  }
+
+  function continueGame() {
+    if (!SC.session.resume()) {
+      updateStartButtons();
+      SC.ui.announce(t('start.resumeFailed'));
+      $('newGameBtn').focus();
+      return;
+    }
+    if (SC.session.game.over) showResults();
+    else { SC.gameScreen.render(); showScreen('game'); }
+  }
+
+  function showResults() {
+    SC.endScreen.render();
+    showScreen('end');
+  }
+
+  // Back to the title screen. The game stays saved, unless forget is true (finished game).
+  function toTitle(forget) {
+    SC.session.end(forget);
     showScreen('start');
   }
 
-  // Placeholder: shows a few starting numbers read from the engine.
-  function drawGameStats() {
-    if (!game) return;
-    const stat = (labelCode, value) => {
-      const box = document.createElement('div');
-      box.className = 'stat';
-      const dt = document.createElement('dt');
-      dt.textContent = t(labelCode);
-      const dd = document.createElement('dd');
-      dd.textContent = value;
-      box.append(dt, dd);
-      return box;
-    };
-    $('gameStats').replaceChildren(
-      stat('stat.turn', t('stat.turnValue', { turn: game.turn, turns: game.P.turns })),
-      stat('stat.money', Math.round(game.money)),
-      stat('stat.trust', Math.round(game.T))
-    );
-  }
+  SC.app = { showScreen, showResults, newGame, toTitle };
 
   // ----- Start -----
   drawMotif();
   I18n.init();                 // picks the language and fills in all marked texts
   drawLanguageSwitch();
+  SC.gameScreen.init();
+  SC.designPanel.init();
+  SC.endScreen.init();
+  updateStartButtons();
   I18n.onChange(() => {        // when the player switches language, redraw texts made in code
     markCurrentLanguage();
-    drawGameStats();
+    if (current === 'game') SC.gameScreen.render();
+    if (current === 'end') SC.endScreen.render();
   });
-  $('newGameBtn').addEventListener('click', startNewGame);
-  $('backBtn').addEventListener('click', backToTitle);
-})();
+  $('continueBtn').addEventListener('click', continueGame);
+  $('newGameBtn').addEventListener('click', onNewGameClick);
+  $('toTitleBtn').addEventListener('click', () => toTitle(false));
+})(globalThis);

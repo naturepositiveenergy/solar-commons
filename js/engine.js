@@ -1,4 +1,4 @@
-// Solar Commons: game rules engine (design document v0.4)
+// Solar Commons: game rules engine (design document v0.5)
 //
 // This file is the referee of the game. It knows every rule and number,
 // but it never draws anything on screen and contains no texts. Messages for
@@ -11,7 +11,7 @@
 (function (root) {
 'use strict';
 
-// ===== Numbers (design document v0.4) =====
+// ===== Numbers (design document v0.5) =====
 // All rule numbers in one place. The simulator can override them for testing.
 const DEFAULT_PARAMS = {
   // Game
@@ -102,6 +102,13 @@ const ACTIONS = {   // engagement actions and their cost in action points
   fund: { ap: 2 },
   benefit: { ap: 1 }
 };
+// Project stages, in order. 'dropped' = given up before submission (no penalty).
+const STATUSES = ['design', 'permitting', 'approved', 'building', 'operating', 'sold', 'cancelled', 'dropped'];
+// Management options for a park (section 5)
+const MANAGEMENT = ['none', 'mowing', 'grazing'];
+// Version of the rules. Change it together with docs/design.md: saved games made
+// with other rules are not continued, because they would play differently.
+const RULES_VERSION = 'v0.5';
 
 // ===== Helpers =====
 // Random numbers from a seed: the same seed always gives the same game.
@@ -165,16 +172,21 @@ function genSites(g) {
 }
 
 // ===== Residents and acceptance =====
-// Effective support of each resident, including design matching bonuses.
-function effS(p, P) {
+// Design matching (section 5): which residents' wishes the project meets, one entry per resident
+// in the order of RESIDENTS. Also works for a planned design: { site, design, calc }.
+function wishesMet(p) {
   const d = p.design;
-  const m = [
+  return [
     p.site === 'agri' || (p.site === 'farmland' && (d.wide || 0) >= (d.dense || 0) && (d.wide || 0) > 0),
     !d.cheap && (d.hedge || 0) >= 3 && p.site !== 'forest',
     p.fund || p.benefit,
     p.calc.bTarget >= 40,
     p.genuineBefore
   ];
+}
+// Effective support of each resident, including design matching bonuses.
+function effS(p, P) {
+  const m = wishesMet(p);
   return p.S.map((s, i) => clamp(s + (m[i] ? P.matchBonus : 0), -100, 100));
 }
 function matches(p, P) { return effS(p, P).map((v, i) => v !== clamp(p.S[i], -100, 100)); }
@@ -182,16 +194,24 @@ function acceptance(p, P) {
   const e = effS(p, P);
   return clamp(50 + (e.reduce((a, b) => a + b, 0) / e.length) / 2, 0, 100);
 }
-function shiftAll(p, v) { p.S = p.S.map(s => clamp(s + v, -100, 100)); }
+const shifted = (S, v) => S.map(s => clamp(s + v, -100, 100));
+function shiftAll(p, v) { p.S = shifted(p.S, v); }
 
 // ===== Player actions =====
+// What is wrong with a design, or null if it can be built.
+function designProblem(calc, P) {
+  if (calc.tiles > P.maxTiles) return msg('err.tooManyTiles', { tiles: calc.tiles, max: P.maxTiles });
+  if (calc.cap <= 0) return msg('err.noPanels');
+  return null;
+}
+
 function startProject(g, siteIdx, design) {
   const P = g.P;
   const site = g.sites[siteIdx];
   if (!site) return { ok: false, msg: msg('err.noSite') };
   const calc = calcDesign(design, site.type, P);
-  if (calc.tiles > P.maxTiles) return { ok: false, msg: msg('err.tooManyTiles', { tiles: calc.tiles, max: P.maxTiles }) };
-  if (calc.cap <= 0) return { ok: false, msg: msg('err.noPanels') };
+  const problem = designProblem(calc, P);
+  if (problem) return { ok: false, msg: problem };
   const base = (g.T - 50) * 2;
   const S = [base, base, base, base, base];
   if (site.type === 'agri') S[0] += P.agriFarmerBonus;
@@ -209,36 +229,124 @@ function startProject(g, siteIdx, design) {
   return { ok: true, p };
 }
 
-function doAction(g, p, a) {
-  const P = g.P, A = ACTIONS[a];
+// Change the design of a project that has not been submitted yet (section 5, added in v0.5).
+function changeDesign(g, p, design) {
+  if (p.status !== 'design') return { ok: false, msg: msg('err.designLocked') };
+  const calc = calcDesign(design, p.site, g.P);
+  const problem = designProblem(calc, g.P);
+  if (problem) return { ok: false, msg: problem };
+  p.design = { ...design }; p.calc = calc;
+  log(g, 'log.designChanged', { id: p.id, cap: calc.cap, cost: calc.cost });
+  return { ok: true };
+}
+
+// Drop a project that has not been submitted yet (section 5, added in v0.5): no penalty,
+// but the site and any action points already spent are lost, and a benefit agreement ends.
+function dropProject(g, p) {
+  if (p.status !== 'design') return { ok: false, msg: msg('err.dropLocked') };
+  p.status = 'dropped';
+  log(g, 'log.dropped', { id: p.id });
+  return { ok: true };
+}
+
+// The resident an individual visit goes to: the least supportive one (section 5).
+function visitTarget(p, P) { const e = effS(p, P); return e.indexOf(Math.min(...e)); }
+
+// Can this engagement action be done now? { ok: true } or { ok: false, msg }.
+function checkAction(g, p, a) {
+  const A = ACTIONS[a];
   if (!['design', 'permitting', 'approved'].includes(p.status)) return { ok: false, msg: msg('err.engageStatus') };
   if (g.ap < A.ap) return { ok: false, msg: msg('err.needAP', { need: A.ap, left: g.ap }) };
   if (a === 'fund' && p.fund) return { ok: false, msg: msg('err.fundDone') };
   if (a === 'benefit' && p.benefit) return { ok: false, msg: msg('err.benefitDone') };
+  return { ok: true };
+}
+
+function doAction(g, p, a) {
+  const P = g.P, A = ACTIONS[a];
+  const check = checkAction(g, p, a);
+  if (!check.ok) return check;
   g.ap -= A.ap;
   p.engaged = true;
   if (a === 'genuine') { shiftAll(p, P.genuineGain); p.genuineAny = true; if (p.status === 'design') p.genuineBefore = true; }
-  if (a === 'visit') { const e = effS(p, P); let i = e.indexOf(Math.min(...e)); p.S[i] = clamp(p.S[i] + P.visitGain, -100, 100); }
+  if (a === 'visit') { const i = visitTarget(p, P); p.S[i] = clamp(p.S[i] + P.visitGain, -100, 100); }
   if (a === 'tour') { p.S[1] = clamp(p.S[1] + P.tourGain, -100, 100); p.S[3] = clamp(p.S[3] + P.tourGain, -100, 100); }
   if (a === 'fund') { shiftAll(p, P.fundGain); p.fund = true; }
   if (a === 'benefit') { shiftAll(p, P.benefitGain); p.benefit = true; }
   return { ok: true };
 }
 
+// ===== Money =====
+// The player's share of the build cost (a citizen fund pays part of it).
 function playerCost(p, P) { return p.calc.cost * (p.fund ? 1 - P.fundShare : 1); }
+// Planning cost, paid at submission and lost on cancellation (section 8).
+function planningCost(p, P) { return playerCost(p, P) * P.planningShare; }
+// Still to pay when construction starts.
+function buildPayment(p, P) { return playerCost(p, P) - p.planningPaid; }
+// Price when an operating park is sold (section 7).
+function salePrice(p, P) { return p.calc.cost * P.sellMult; }
+// Net revenue of a park for a given gross revenue (section 8).
+function netRevenue(p, P, gross) {
+  return gross - p.calc.mgmtCost - (p.fund ? gross * P.fundShare : 0) - gross * P.decomShare;
+}
+// Expected income per turn of a park without random effects (average FIP factor, no curtailment),
+// after management, citizen fund share, decommissioning reserve and benefit agreement.
+// Also works for a planned design: { calc, fund, benefit }.
+function expectedIncome(g, p) {
+  const P = g.P;
+  const fip = p.calc.cap >= P.fipThreshold ? (P.fipMin + P.fipMax) / 2 : 1;
+  const gross = p.calc.cap * P.revMult * g.revFactor * fip;
+  return netRevenue(p, P, gross) - (p.benefit ? P.benefitCost : 0);
+}
+
+// ===== Permitting =====
+// Promotion zone bonus: at submission, biodiversity target at least 40 and a citizen fund
+// or benefit agreement (section 4).
+function promoQualifies(p) { return p.promo && p.calc.bTarget >= 40 && (p.fund || p.benefit); }
+
+// Permit turns from the site type and the 条例 alone, before acceptance and bonuses.
+function sitePermitTurns(g, siteType) {
+  const P = g.P;
+  return P['permit_' + siteType] + (siteType === 'farmland' ? P.farmlandExtra : 0) + (siteType === 'forest' ? P.forestExtra : 0)
+    + (g.ordinance ? P.ordinanceTurns : 0);
+}
+
+// Permit duration D (section 8) for acceptance A at submission.
+function permitTurns(g, p, A, promoActive) {
+  const P = g.P;
+  const D = sitePermitTurns(g, p.site) + Math.max(0, Math.ceil((P.permitAThreshold - A) / P.permitAStep))
+    - (p.genuineBefore ? P.earlyBonus : 0) - (promoActive ? P.promoTurns : 0);
+  return Math.max(1, D);
+}
+
+// What submitting now would mean: { turns, A, cost, promo }.
+// With { genuineFirst: true }: the same, after first holding a genuine 説明会.
+function submitPreview(g, p, opts = {}) {
+  const P = g.P;
+  const q = opts.genuineFirst ? { ...p, genuineBefore: true, S: shifted(p.S, P.genuineGain) } : p;
+  const promo = !!promoQualifies(q);
+  const A = acceptance(promo ? { ...q, S: shifted(q.S, P.promoA * 2) } : q, P);
+  return { turns: permitTurns(g, q, A, promo), A, cost: planningCost(q, P), promo };
+}
+
+// Objection probability per permitting turn (section 8). extraShift: a support change to assume first.
+function objectionChance(p, P, extraShift = 0) {
+  const A = acceptance(extraShift ? { ...p, S: shifted(p.S, extraShift) } : p, P);
+  return P.objBase * ((100 - A) / 100) * P['risk_' + p.site] * (p.promoActive ? P.promoRisk : 1);
+}
+// Objection probability at the end of this turn, including the support lost if the
+// project gets no attention this turn (silence).
+function objectionPreview(p, P) { return objectionChance(p, P, p.engaged ? 0 : -P.silenceDrift); }
 
 function submit(g, p) {
   const P = g.P;
   if (p.status !== 'design') return { ok: false, msg: msg('err.submitStatus') };
-  const plan = playerCost(p, P) * P.planningShare;
+  const plan = planningCost(p, P);
   if (g.money < plan) return { ok: false, msg: msg('err.planningCost', { cost: plan }) };
   g.money -= plan; p.planningPaid = plan;
-  if (p.promo && p.calc.bTarget >= 40 && (p.fund || p.benefit)) { p.promoActive = true; shiftAll(p, P.promoA * 2); }
+  if (promoQualifies(p)) { p.promoActive = true; shiftAll(p, P.promoA * 2); }
   const A = acceptance(p, P);
-  let D = P['permit_' + p.site] + (p.site === 'farmland' ? P.farmlandExtra : 0) + (p.site === 'forest' ? P.forestExtra : 0)
-    + (g.ordinance ? P.ordinanceTurns : 0) + Math.max(0, Math.ceil((P.permitAThreshold - A) / P.permitAStep))
-    - (p.genuineBefore ? P.earlyBonus : 0) - (p.promoActive ? P.promoTurns : 0);
-  p.permitLeft = Math.max(1, D);
+  p.permitLeft = permitTurns(g, p, A, p.promoActive);
   p.status = 'permitting';
   log(g, p.genuineBefore ? 'log.submittedGenuine' : 'log.submitted', { id: p.id, turns: p.permitLeft, A });
   return { ok: true };
@@ -246,7 +354,7 @@ function submit(g, p) {
 
 function sell(g, p) {
   if (p.status !== 'operating') return { ok: false, msg: msg('err.sellStatus') };
-  const price = p.calc.cost * g.P.sellMult;
+  const price = salePrice(p, g.P);
   g.money += price; p.status = 'sold'; p.sellTimer = 2;
   log(g, 'log.sold', { id: p.id, price });
   return { ok: true };
@@ -332,19 +440,17 @@ function endTurn(g) {
   const P = g.P;
   rollEvent(g);
   g.projects.forEach(p => {
-    if (p.benefit && !['cancelled', 'sold'].includes(p.status)) g.money -= P.benefitCost;
+    if (p.benefit && !['cancelled', 'sold', 'dropped'].includes(p.status)) g.money -= P.benefitCost;
   });
   g.projects.forEach(p => {
     const st = p.status;
     if (st === 'permitting') {
       if (!p.engaged) shiftAll(p, -P.silenceDrift);
-      let A = acceptance(p, P);
-      const prob = P.objBase * ((100 - A) / 100) * P['risk_' + p.site] * (p.promoActive ? P.promoRisk : 1);
-      if (g.r() < prob) {
+      if (g.r() < objectionChance(p, P)) {
         p.objections++; g.objectionsTotal++; p.permitLeft += P.objDelay; shiftAll(p, -P.objSPenalty);
         log(g, 'log.objection', { id: p.id, count: p.objections, delay: P.objDelay });
       }
-      A = acceptance(p, P);
+      const A = acceptance(p, P);
       if (p.objections >= P.maxObjections) return cancel(g, p, msg('cancel.objections'));
       if (A < P.cancelA) return cancel(g, p, msg('cancel.acceptance', { A }));
       p.permitLeft--;
@@ -356,7 +462,7 @@ function endTurn(g) {
         } else { p.status = 'approved'; log(g, 'log.approved', { id: p.id }); }
       }
     } else if (st === 'approved') {
-      const need = playerCost(p, P) - p.planningPaid;
+      const need = buildPayment(p, P);
       if (g.money >= need) {
         g.money -= need; p.status = 'building'; p.buildLeft = P.buildTurns;
         log(g, 'log.constructionStarted', { id: p.id, paid: need });
@@ -375,7 +481,7 @@ function endTurn(g) {
     } else if (st === 'operating') {
       const fip = p.calc.cap >= P.fipThreshold ? P.fipMin + g.r() * (P.fipMax - P.fipMin) : 1;
       const gross = p.calc.cap * P.revMult * g.revFactor * fip * g.curtail;
-      const net = gross - p.calc.mgmtCost - (p.fund ? gross * P.fundShare : 0) - gross * P.decomShare;
+      const net = netRevenue(p, P, gross);
       g.money += net;
       p.B += P.bGrowth * (p.calc.bTarget - p.B);
     } else if (st === 'sold') {
@@ -431,9 +537,16 @@ function scoreGame(g) {
 
 // ===== What other files can use =====
 const api = {
-  defaultParams, SITE_TYPES, RESIDENTS, TILE_KEYS, ACTIONS,
-  rng, clamp, calcDesign, newGame, effS, matches, acceptance,
-  startProject, doAction, playerCost, submit, sell, endTurn, scorePark, scoreGame
+  // lists and numbers
+  defaultParams, SITE_TYPES, RESIDENTS, TILE_KEYS, ACTIONS, STATUSES, MANAGEMENT, RULES_VERSION,
+  // game and player actions
+  rng, clamp, newGame, startProject, changeDesign, dropProject, doAction, submit, sell, endTurn,
+  // questions the screens can ask (they never change the game)
+  calcDesign, designProblem, wishesMet, effS, matches, acceptance, checkAction, visitTarget,
+  playerCost, planningCost, buildPayment, salePrice, expectedIncome,
+  promoQualifies, sitePermitTurns, submitPreview, objectionChance, objectionPreview,
+  // scoring
+  scorePark, scoreGame
 };
 root.SolarEngine = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;   // for test scripts run with Node

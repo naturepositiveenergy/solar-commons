@@ -13,38 +13,96 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/game.css">
 </head>
 <body>
 <div class="app">
   <header class="topbar">
+    <div class="topbar-left">
+      <!-- Only shown during a game -->
+      <button type="button" class="btn-link" id="toTitleBtn" data-i18n="game.toTitle" hidden></button>
+    </div>
     <!-- Language buttons are added by js/main.js, one per language file -->
     <nav class="lang-switch" id="langSwitch" data-i18n-aria-label="lang.switchLabel"></nav>
   </header>
 
   <main>
     <!-- Start screen -->
-    <section class="screen" id="screen-start">
+    <section class="screen screen-start" id="screen-start">
       <div class="motif" id="motif" aria-hidden="true"></div>
       <h1 class="title" tabindex="-1" data-i18n="app.title"></h1>
       <p class="subtitle" data-i18n="start.subtitle"></p>
-      <button type="button" class="btn btn-primary" id="newGameBtn" data-i18n="start.newGame"></button>
+      <div class="start-buttons">
+        <button type="button" class="btn btn-primary" id="continueBtn" data-i18n="start.continue" hidden></button>
+        <button type="button" class="btn btn-primary" id="newGameBtn" data-i18n="start.newGame"></button>
+      </div>
+      <p class="saved-note" id="savedNote" data-i18n="start.savedNote" hidden></p>
     </section>
 
-    <!-- Game screen (placeholder until Milestone 2) -->
-    <section class="screen" id="screen-game" hidden>
-      <h1 class="title" tabindex="-1" data-i18n="game.placeholderTitle"></h1>
-      <dl class="stats" id="gameStats"></dl>
-      <p class="note" data-i18n="game.placeholderNote"></p>
-      <button type="button" class="btn" id="backBtn" data-i18n="game.backToTitle"></button>
+    <!-- Game screen: its contents are drawn by js/game-screen.js -->
+    <section class="screen screen-game" id="screen-game" hidden>
+      <h1 class="visually-hidden" tabindex="-1" data-i18n="game.heading"></h1>
+      <div id="gameView"></div>
+    </section>
+
+    <!-- End screen: its contents (including the heading) are drawn by js/end-screen.js -->
+    <section class="screen screen-end" id="screen-end" hidden>
+      <div id="endView"></div>
     </section>
   </main>
 </div>
 
-<!-- Order matters: language system, texts (Japanese first = first in the switch), rules, then the screens -->
+<!-- Pop-up: design panel (js/design-panel.js) -->
+<dialog class="dialog dialog-large" id="designDialog" aria-labelledby="designTitle">
+  <form method="dialog" class="dialog-frame" novalidate>
+    <div class="dialog-head"><h2 id="designTitle" tabindex="-1"></h2></div>
+    <div class="dialog-scroll" id="designForm"></div>
+    <div class="dialog-foot">
+      <dl class="design-summary" id="designSummary"></dl>
+      <p class="design-problem" id="designProblem" role="alert"></p>
+      <div class="dialog-actions">
+        <button type="submit" value="cancel" class="btn" id="designCancel"></button>
+        <button type="submit" value="ok" class="btn btn-primary" id="designOk"></button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<!-- Pop-up: report after each turn -->
+<dialog class="dialog" id="reportDialog" aria-labelledby="reportTitle">
+  <form method="dialog">
+    <h2 id="reportTitle"></h2>
+    <div id="reportBody"></div>
+    <div class="dialog-actions"><button type="submit" value="ok" class="btn btn-primary" id="reportContinue" autofocus></button></div>
+  </form>
+</dialog>
+
+<!-- Pop-up: yes/no questions -->
+<dialog class="dialog" id="confirmDialog" aria-labelledby="confirmTitle">
+  <form method="dialog">
+    <h2 id="confirmTitle"></h2>
+    <p id="confirmText"></p>
+    <div class="dialog-actions">
+      <button type="submit" value="cancel" class="btn" id="confirmCancel"></button>
+      <button type="submit" value="ok" class="btn btn-primary" id="confirmOk"></button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Short messages -->
+<p class="toast" id="toast" role="status" aria-live="polite"></p>
+
+<!-- Order matters: language system, texts (Japanese first = first in the switch), rules,
+     helpers, then the screens, and main.js last -->
 <script src="js/i18n.js"></script>
 <script src="lang/ja.js"></script>
 <script src="lang/en.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/save.js"></script>
+<script src="js/game-screen.js"></script>
+<script src="js/design-panel.js"></script>
+<script src="js/end-screen.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
