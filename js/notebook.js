@@ -30,7 +30,7 @@
     { id: 'promo', source: 'https://www.env.go.jp/content/000395587.pdf',
       found: g => g.projects.some(p => p.promo) },
     { id: 'fitfip', source: 'https://www.meti.go.jp/shingikai/santeii/pdf/20260205_1.pdf',
-      found: g => g.projects.some(operated) },
+      found: g => g.projects.some(operated) || g.log.some(l => l.msg.key === 'log.supportEnded') },
     { id: 'grid', source: 'https://www.meti.go.jp/shingikai/enecho/shoene_shinene/shin_energy/keito_wg/pdf/017_02_00.pdf',
       found: g => g.log.some(l => GRID_EVENTS.includes(l.msg.key)) },
     { id: 'decommission', source: 'https://www.meti.go.jp/shingikai/enecho/shoene_shinene/shin_energy/taiyoko_haikihiyo_wg/pdf/005_00_02.pdf',

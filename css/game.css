@@ -58,6 +58,7 @@
 .alert { margin: 0; padding: 10px 14px; border-radius: 10px; border-left: 4px solid; background: var(--surface); }
 .alert.is-info { border-color: var(--info); color: var(--ink); }
 .alert.is-bad { border-color: var(--bad); color: var(--ink); background: color-mix(in srgb, var(--bad) 10%, var(--surface)); }
+.alert.is-warn { border-color: var(--warn); color: var(--ink); background: color-mix(in srgb, var(--warn) 10%, var(--surface)); }
 
 /* ----- Cards ----- */
 .card {
@@ -74,6 +75,9 @@
 .facts { list-style: none; padding: 0; margin: 0 0 12px; font-size: 0.9rem; color: var(--muted); }
 .tag { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
 .tag.is-promo { background: color-mix(in srgb, var(--good) 15%, var(--surface)); color: var(--good); border: 1px solid var(--good); }
+/* How a park sells its power: FIT, FIP, or market prices without support (from fiscal year 2027) */
+.tag.is-fit, .tag.is-fip { color: var(--ink); border: 1px solid var(--muted); }
+.tag.is-market { background: color-mix(in srgb, var(--warn) 15%, var(--surface)); color: var(--warn); border: 1px solid var(--warn); }
 
 .site-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
 .site-card { display: flex; flex-direction: column; }

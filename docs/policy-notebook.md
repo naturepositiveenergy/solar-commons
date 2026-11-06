@@ -1,6 +1,6 @@
 # Policy notebook: draft texts for review
 
-**Status: reviewed and approved on 6 November 2026; in the game since Milestone 4.** Researched on 6 November 2026. When a policy changes, update the texts here and in the language files (`nb.<id>.…`), and the source link in `js/notebook.js`.
+**Status: reviewed and approved on 6 November 2026; in the game since Milestone 4. The FIT/FIP and promotion zone entries were updated for rules v0.8 (approved on 6 November 2026).** Researched on 6 November 2026. When a policy changes, update the texts here and in the language files (`nb.<id>.…`), and the source link in `js/notebook.js`.
 
 These texts will appear in the game's policy notebook (政策ノート), in Japanese and English. Each entry has:
 
@@ -19,7 +19,7 @@ After your review, the texts move into `lang/en.js` and `lang/ja.js`. This file 
 1. **FIT/FIP for ground-mounted solar ends.** The procurement price committee (調達価格等算定委員会, 110th meeting, January 2026) agreed that new ground-mounted business solar of 10 kW and above will no longer receive FIT/FIP support from fiscal year 2027. Rooftop solar keeps support. Projects that are already certified keep their support. *(secondary: ITmedia, 環境ビジネス; official: the committee's opinion of 5 Feb 2026)*
 2. **Possible exceptions ("support focus", 支援重点化).** On 30 September 2026, a draft from the secretariat proposed continued support for four groups: land owned by national or local government, **projects certified in a promotion zone (促進区域)**, solar carports, and infrastructure spaces. 営農型 is "under continued review". This is a proposal; prices and criteria are expected around January 2027. *(secondary: cycle-tank)*
 
-**Question for a later milestone (not part of Milestone 4):** in the game, every park earns FIT/FIP revenue. From 2027, real ground-mounted parks outside these exceptions would have to sell their power without support (for example through corporate PPAs). Should the game reflect this, for example by giving promotion zones much more weight? That would be a rule change, so I only note it here.
+**In the game since rules v0.8:** projects submitted from turn 5 (fiscal year 2027) sell at market prices without FIT/FIP. Projects with the promotion zone bonus keep FIT/FIP; this is the only exception in the game, because the other exceptions (public land, carports, infrastructure) do not exist there. See docs/design.md, section 6. **Revisit after the final decision (expected around January 2027),** especially if agrivoltaics get an exception.
 
 ---
 
@@ -132,41 +132,45 @@ After your review, the texts move into `lang/en.js` and `lang/ja.js`. This file 
 **Unlocks when:** you start a project on a site in a promotion zone.
 
 **In the game**
-- EN: A site in a promotion zone gives a bonus if, at submission, the biodiversity target is 40 or more and there is a citizen fund or benefit agreement: 1 permit turn faster, more acceptance and fewer objections.
-- JA: 促進区域の候補地では、申請時に生物多様性の目標が40以上で、市民ファンドか地域還元協定があれば、ボーナスがあります：許認可が1ターン早くなり、受容度が上がり、反対が起きにくくなります。
+- EN: A site in a promotion zone gives a bonus if, at submission, the biodiversity target is 40 or more and there is a citizen fund or benefit agreement: 1 permit turn faster, more acceptance and fewer objections. From fiscal year 2027, the bonus also keeps FIT or FIP, which other new projects no longer get.
+- JA: 促進区域の候補地では、申請時に生物多様性の目標が40以上で、市民ファンドか地域還元協定があれば、ボーナスがあります：許認可が1ターン早くなり、受容度が上がり、反対が起きにくくなります。2027年度以降は、ほかの新しいプロジェクトが受けられないFIT・FIPも、ボーナスがあれば受けられます。
 
 **In reality**
-- EN: Under the Global Warming Countermeasures Act (in force since April 2022), municipalities can set promotion zones for renewables together with local stakeholders, leaving out areas such as nature reserves. Projects certified there must contribute to the local community and environment, and can handle several permits in one procedure.
-- JA: 地球温暖化対策推進法（2022年4月施行）に基づき、市町村は地域の関係者と話し合いながら、自然保護区などを除いて再エネを促進する区域を設定できます。そこで市町村の認定を受けた事業は、地域や環境への貢献が求められ、複数の許認可の手続をまとめて行えます。
+- EN: Under the Global Warming Countermeasures Act (in force since April 2022), municipalities can set promotion zones for renewables together with local stakeholders, leaving out areas such as nature reserves. Projects certified there must contribute to the local community and environment, and can handle several permits in one procedure. From fiscal year 2027, certified projects in promotion zones are being considered as one of the few cases of ground-mounted solar that keep FIT or FIP; a decision is expected around January 2027.
+- JA: 地球温暖化対策推進法（2022年4月施行）に基づき、市町村は地域の関係者と話し合いながら、自然保護区などを除いて再エネを促進する区域を設定できます。そこで市町村の認定を受けた事業は、地域や環境への貢献が求められ、複数の許認可の手続をまとめて行えます。2027年度以降も地上設置の太陽光でFIT・FIPの支援が続く例外として、促進区域で認定を受けた事業が検討されています（2027年1月ごろ決定の見込み）。
 
 **Sources**
 - 環境省, 地域脱炭素化促進事業制度: https://www.env.go.jp/content/000395587.pdf
 - 環境省, 資料: https://www.env.go.jp/content/900496043.pdf
 
-**Please check:** see "2026 changes" above: certified promotion-zone projects may keep FIT/FIP support from 2027. Should the entry mention this once it is decided?
+- cycle-tank, 支援重点化 (Oct 2026) *(secondary)*: https://www.cycle-tank.com/post/20261012%E4%BA%8B%E6%A5%AD%E7%94%A8%E5%A4%AA%E9%99%BD%E5%85%89%E3%81%AEfit-fip%E6%94%AF%E6%8F%B4%E9%87%8D%E7%82%B9%E5%8C%96%E3%81%A8%E3%81%AF
+
+**Please check:** the exception for certified promotion-zone projects is a proposal (30 September 2026), known only from a secondary source. Update the last sentence of "In reality" after the decision (expected around January 2027).
 
 ---
 
 ## 7. FIT and FIP — 固定価格買取（FIT）と市場連動（FIP） `fitfip`
 
-**Unlocks when:** your first park starts operating.
+**Unlocks when:** fiscal year 2027 begins (turn 5), or your first park starts operating.
 
 **In the game**
-- EN: Parks below capacity 30 sell at a fixed price (FIT), so income is steady. From capacity 30, the price follows the market (FIP), so income varies from turn to turn.
-- JA: 容量30未満の発電所は固定価格（FIT）で売電し、収入は安定しています。容量30以上では価格が市場に連動し（FIP）、収入はターンごとに変わります。
+- EN: Projects submitted in fiscal year 2026 (turns 1 to 4) get FIT or FIP: below capacity 30, a fixed price (FIT) gives steady income; from 30, the price follows the market (FIP) and income varies. Projects submitted from fiscal year 2027 sell at market prices without support: income is about 20% lower on average and varies more. Projects with the promotion zone bonus keep FIT or FIP.
+- JA: 2026年度（ターン1〜4）に申請したプロジェクトは、FIT・FIPを受けられます。容量30未満は固定価格（FIT）で収入が安定し、30以上は価格が市場に連動して（FIP）収入が変わります。2027年度以降に申請したプロジェクトは支援なしの市場価格で売電し、収入は平均で約2割低く、変動も大きくなります。促進区域のボーナスを得たプロジェクトは、FIT・FIPを受けられます。
 
 **In reality**
-- EN: Under FIT, power is bought at a fixed price for many years; under FIP (since April 2022), generators sell on the market and receive a premium on top. From fiscal year 2027, new ground-mounted business solar will no longer get FIT or FIP support; continued support for some cases, such as certified projects in promotion zones, is under discussion.
-- JA: FITでは電気が長期間、固定価格で買い取られます。FIP（2022年4月〜）では市場で電気を売り、そのうえにプレミアムを受け取ります。2027年度からは、新しい地上設置の事業用太陽光はFIT・FIPの支援対象外となり、促進区域で認定を受けた事業など一部については支援の継続が検討されています。
+- EN: Under FIT, power is bought at a fixed price for many years; under FIP (since April 2022), generators sell on the market and receive a premium on top. From fiscal year 2027, new ground-mounted business solar of 10 kW and more no longer gets FIT or FIP; projects already certified and rooftop solar keep their support. Without support, parks sell their power on the market or under long-term contracts with companies (corporate PPAs). Continued support for some cases, such as certified projects in promotion zones and projects on public land, is under discussion (as of November 2026).
+- JA: FITでは電気が長期間、固定価格で買い取られます。FIP（2022年4月〜）では市場で電気を売り、そのうえにプレミアムを受け取ります。2027年度からは、10kW以上の新しい地上設置の事業用太陽光はFIT・FIPの支援対象外となります。すでに認定を受けた事業と屋根設置の太陽光は、支援が続きます。支援のない発電所は、市場や企業との長期契約（コーポレートPPA）で電気を売ります。促進区域で認定を受けた事業や公有地の事業など、一部については支援の継続が検討されています（2026年11月時点）。
 
 **Sources**
 - 資源エネルギー庁, FIT/FIP 価格表: https://www.enecho.meti.go.jp/category/saving_and_new/saiene/kaitori/fit_kakaku.html
 - 調達価格等算定委員会, 令和8年度以降の調達価格等に関する意見 (5 Feb 2026): https://www.meti.go.jp/shingikai/santeii/pdf/20260205_1.pdf
 - ITmedia スマートジャパン (14 Jan 2026) *(secondary)*: https://www.itmedia.co.jp/smartjapan/articles/2601/14/news048.html
 - 環境ビジネス *(secondary)*: https://www.kankyo-business.jp/news/d602b039-d71e-4616-8ce8-3cda4c3aefd0
+- スマートグリッドフォーラム, 買取価格の決定 (March 2026) *(secondary)*: https://sgforum.impress.co.jp/article/5824
+- 資源エネルギー庁, 支援重点化 (28 Jul 2026, could not be opened here): https://www.meti.go.jp/shingikai/enecho/denryoku_gas/saiene_shuryoku/pdf/003_02_00.pdf
 - cycle-tank, 支援重点化 (Oct 2026) *(secondary)*: https://www.cycle-tank.com/post/20261012%E4%BA%8B%E6%A5%AD%E7%94%A8%E5%A4%AA%E9%99%BD%E5%85%89%E3%81%AEfit-fip%E6%94%AF%E6%8F%B4%E9%87%8D%E7%82%B9%E5%8C%96%E3%81%A8%E3%81%AF
 
-**Please check:** this is the entry most likely to change. The 2027 decision and the "support focus" proposal are mostly from secondary sources. The game's capacity line of 30 is a game simplification (in reality: FIP-only from 250 kW in FY2024).
+**Please check:** this is the entry most likely to change. The 2027 decision and the "support focus" proposal are mostly from secondary sources. The game's capacity line of 30 is a game simplification (in reality: FIP-only from 250 kW in FY2024). "Corporate PPAs" as the way unsupported parks sell their power is from my general knowledge, not from the sources above. The game's market price factor (0.5 to 1.1, average 0.8) is a game value, not a forecast.
 
 ---
 

@@ -28,7 +28,7 @@
   const BAD = ['log.objection', 'log.cancelled', 'log.strike', 'log.ordinance', 'log.consentRefused',
     'log.neglected', 'log.lostMoney', 'log.lostTrust', 'log.rival'];
   const EVENT = ['log.typhoon', 'log.heavyRain', 'log.gridDelay', 'log.gridDelayNone', 'log.curtailment',
-    'log.policyChange', 'log.media', 'log.rareNone'];
+    'log.policyChange', 'log.media', 'log.rareNone', 'log.supportEnded'];
   const moodOf = key => (GOOD.includes(key) ? 'is-good' : BAD.includes(key) ? 'is-bad' : EVENT.includes(key) ? 'is-event' : '');
 
   // The engine writes a regional warning just before the event that caused it
@@ -57,12 +57,15 @@
     SC.notebook.updateButton();   // the "new" count may have changed
   }
 
+  // The last turn in which submitted projects still get FIT/FIP, and its fiscal year (section 6)
+  const lastSupportTurn = g => ({ last: g.P.supportEndTurn - 1, fy: E.calendar(g, g.P.supportEndTurn - 1).fy });
+
   // ⓘ button that opens the policy notebook at one entry
   const info = id => SC.notebook.infoButton(id);
   // Notebook entries for site types and log messages
   const SITE_ENTRY = { farmland: 'farmland', agri: 'agri', forest: 'forest' };
   const LOG_ENTRY = { 'log.gridDelay': 'grid', 'log.gridDelayNone': 'grid', 'log.curtailment': 'grid',
-    'log.ordinance': 'ordinance', 'log.rareFound': 'natureSite' };
+    'log.ordinance': 'ordinance', 'log.rareFound': 'natureSite', 'log.supportEnded': 'fitfip' };
   const logLine = m => `<li class="${moodOf(m.key)}">${esc(t(m))}${LOG_ENTRY[m.key] ? ' ' + info(LOG_ENTRY[m.key]) : ''}</li>`;
 
   function statusHtml(g) {
@@ -80,7 +83,7 @@
     return `
       <div class="status-bar">
         <div class="status-time">
-          <strong>${esc(t('status.time', { year: Math.ceil(turn / 4), quarter: (turn - 1) % 4 + 1 }))}</strong>
+          <strong>${esc(t('status.time', E.calendar(g, turn)))}</strong>
           <span>${esc(t('status.turn', { turn, turns: P.turns }))}</span>
         </div>
         <dl class="status-stats">
@@ -100,7 +103,12 @@
     if (g.money < 0) list.push(['bad', t('alert.moneyNegative')]);
     if (g.T < P.loseTrust + 10) list.push(['bad', t('alert.trustLow', { limit: P.loseTrust })]);
     if (g.turn === P.turns) list.push(['info', t('alert.lastTurn')]);
-    return list.length ? `<div class="alerts">${list.map(([mood, text]) => `<p class="alert is-${mood}">${esc(text)}</p>`).join('')}</div>` : '';
+    // the end of FIT/FIP for projects submitted from fiscal year 2027 (section 6)
+    const deadline = lastSupportTurn(g);
+    if (g.turn < deadline.last) list.push(['info', t('alert.supportDeadline', deadline), 'fitfip']);
+    else if (g.turn === deadline.last) list.push(['warn', t('alert.supportLastTurn', deadline), 'fitfip']);
+    return list.length ? `<div class="alerts">${list.map(([mood, text, entry]) =>
+      `<p class="alert is-${mood}">${esc(text)}${entry ? ' ' + info(entry) : ''}</p>`).join('')}</div>` : '';
   }
 
   function sitesHtml(g) {
@@ -117,7 +125,7 @@
           <li>${esc(t('sites.permit', { turns: E.sitePermitTurns(g, s.type) }))}</li>
           <li>${esc(t('sites.risk', { level: t(siteRiskLevel(P['risk_' + s.type])) }))}</li>
         </ul>
-        ${s.promo ? `<p class="card-note">${esc(t('sites.promoInfo'))}</p>` : ''}
+        ${s.promo ? `<p class="card-note">${esc(t('sites.promoInfo', { fy: E.calendar(g, P.supportEndTurn).fy }))}</p>` : ''}
         <button type="button" class="btn btn-small" data-act="plan" data-site="${i}" data-key="plan-${i}">${esc(t('sites.plan'))}</button>
       </article>`).join('');
     return `
@@ -145,7 +153,8 @@
       </div>`;
     const facts = `
       <p class="facts-line">${esc(t('project.facts', { cap: p.calc.cap, cost: p.calc.cost, b: p.calc.bTarget }))}
-        ${p.promo ? `<span class="tag is-promo">${esc(t('sites.promo'))}</span>${info('promo')}` : ''}</p>`;
+        ${p.promo ? `<span class="tag is-promo">${esc(t('sites.promo'))}</span>${info('promo')}` : ''}
+        ${p.support && !ENDED.includes(p.status) ? `<span class="tag is-${p.support}">${esc(t('support.' + p.support))}</span>${info('fitfip')}` : ''}</p>`;
     // the facts and status on the left, a small map of the park on the right
     const top = inner => `<div class="project-top"><div>${facts}${inner}</div>${SC.mapEditor.miniMapHtml(p.design)}</div>`;
     if (ENDED.includes(p.status)) {
@@ -178,6 +187,11 @@
           if (first.turns < now.turns) lines.push([t('project.genuineHint', { turns: first.turns }), 'good']);
         }
         if (p.promo) lines.push(now.promo ? [t('project.promoReady'), 'good'] : [t('project.promoMissing'), 'warn']);
+        // how the park would sell its power (section 6)
+        const deadline = lastSupportTurn(g);
+        if (g.turn <= deadline.last) lines.push([t('project.supportBefore', deadline), g.turn === deadline.last ? 'warn' : '', 'fitfip']);
+        else if (now.support === 'market') lines.push([t(p.promo ? 'project.supportMarketPromo' : 'project.supportMarket'), 'warn', 'fitfip']);
+        else lines.push([t('project.supportKept'), 'good', 'fitfip']);
         return lines;
       }
       case 'permitting': {

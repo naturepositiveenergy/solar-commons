@@ -1,6 +1,8 @@
 # Solar Commons (working title)
 
-**Game Design Document v0.7** | Christian Doedt | Draft for discussion
+**Game Design Document v0.8** | Christian Doedt | Draft for discussion
+
+*Changes in v0.8: the end of FIT/FIP support for new ground-mounted solar from fiscal year 2027. The scenario now runs from April 2026 (fiscal year 2026) to March 2031. Projects submitted from turn 5 (fiscal year 2027) sell at market prices, except projects with the promotion zone bonus, which keep FIT/FIP (sections 2, 4, 6 and 8). The balance is unchanged (section 11).*
 
 *Changes in v0.7: scenario codes. Everyone who plays the same code gets the same sites and events (section 2). All rules and numbers are unchanged, and so is the balance (checked with 1,000 simulated games per strategy).*
 
@@ -18,9 +20,9 @@ The player is a solar PV developer in a rural Japanese municipality. The goal is
 
 ## 2. Core loop
 
-One turn = one quarter. A scenario lasts 20 turns (5 years).
+One turn = one quarter. A scenario lasts 20 turns (5 years): fiscal years 2026 to 2030, starting in April 2026 (turn 1 = April to June 2026, turn 5 = April to June 2027).
 
-**Scenario codes:** every game has a scenario code, a number from 1000 to 9999. Everyone who plays the same code is offered the same sites and gets the same events in the same turns, whatever they decide, so groups in a workshop can compare their games. To make this possible, random numbers are drawn separately for the sites, for the events, and for each game's own luck (objections and FIP market prices). Which project a grid delay hits depends on the player's projects. When a 条例 bans forest sites, a forest offer is replaced by another site type, and the other offers stay the same.
+**Scenario codes:** every game has a scenario code, a number from 1000 to 9999. Everyone who plays the same code is offered the same sites and gets the same events in the same turns, whatever they decide, so groups in a workshop can compare their games. To make this possible, random numbers are drawn separately for the sites, for the events, and for each game's own luck (objections and varying prices under FIP and market sales). Which project a grid delay hits depends on the player's projects. When a 条例 bans forest sites, a forest offer is replaced by another site type, and the other offers stay the same.
 
 1. **Scout:** choose a site from 3 random options
 2. **Design:** place panels and nature measures on a 10 × 10 tile map
@@ -51,7 +53,7 @@ One turn = one quarter. A scenario lasts 20 turns (5 years).
 | Brownfield | 2 | 0.6 | None extra |
 | Reservoir (floating) | 4 | 0.9 | Water/fishery consent |
 
-Each site has a 20% chance of lying in a promotion zone (促進区域). If the project has a biodiversity target ≥ 40 and a citizen fund or benefit agreement, it gets −1 permit turn, A +10, and site risk ×0.7.
+Each site has a 20% chance of lying in a promotion zone (促進区域). If, at submission, the project has a biodiversity target ≥ 40 and a citizen fund or benefit agreement, it gets the promotion zone bonus: −1 permit turn, A +10, and site risk ×0.7. From fiscal year 2027, the bonus also keeps FIT/FIP support (section 6).
 
 ## 5. Design and community
 
@@ -109,11 +111,14 @@ Each real policy appears as a permit card or rule with a short bilingual explana
 | 林地開発許可 | +2 permit turns; drainage required (cost +20%) |
 | Local solar ordinance (条例) | Triggered by bad projects (see 7) |
 | Promotion zones (地域脱炭素化促進事業) | See section 4 |
-| FIT vs FIP | Parks below 30 capacity: fixed revenue. From 30: revenue × random 0.8 to 1.2 per turn |
+| FIT vs FIP | Parks below 30 capacity: fixed revenue (FIT). From 30: revenue × random 0.8 to 1.2 per turn (FIP) |
+| End of FIT/FIP for new ground-mounted solar (from fiscal year 2027) | Projects submitted from turn 5 sell at market prices: revenue × random 0.5 to 1.1 per turn (average 0.8). Exception: projects with the promotion zone bonus keep FIT/FIP. All five site types count as ground-mounted. The scheme is fixed at submission. |
 | Grid connection and curtailment (出力制御) | Events (see 9) |
 | Decommissioning reserve (廃棄等費用積立) | 5% of gross revenue |
 
 **Verification needed:** thresholds and details (e.g. which project sizes require FIP, forest permit area thresholds, the briefing requirement, current 営農型 rules after the 2026 revision) have changed in recent years. Check these against current regulations before finalising texts.
+
+**End of FIT/FIP (status November 2026):** decided in March 2026 for new ground-mounted business solar of 10 kW and more from fiscal year 2027 (already certified projects and FY2026 auction winners keep their support; roof-mounted solar keeps it). Exceptions for national and municipal land, certified projects in promotion zones, carports and infrastructure spaces were proposed in September 2026, with a decision expected around January 2027; agrivoltaics are still under review. The game models only the promotion zone exception, because only promotion zones exist in the game. Submission in the game stands for the certification application. If the final decision differs (for example for agrivoltaics), revisit this rule.
 
 ## 7. Fast-and-cheap strategy
 
@@ -140,7 +145,7 @@ This strategy is deliberately attractive in the short term.
 - **Objection probability per permitting turn:** P_obj = 0.25 × ((100 − A) / 100) × site risk
 - **Objection effect:** delay +1 turn, all S −5. Three objections, or A below 20, cancels the project (T −8, one strike)
 - **Biodiversity target:** B_target = min(100, tile and management points + 5 × (distinct measure types − 1)) + site modifier. Wide panels, each nature tile type, and management each count as one measure type. Corridor tiles count only when connected (section 5). During operation, B grows by 20% of the remaining gap per turn
-- **Revenue per turn:** capacity × 0.6 × policy factor × FIP factor × curtailment − management cost − citizen fund share − decommissioning reserve
+- **Revenue per turn:** capacity × 0.6 × policy factor × price factor × curtailment − management cost − citizen fund share − decommissioning reserve. Price factor: FIT 1; FIP random 0.8 to 1.2; market prices random 0.5 to 1.1 (section 6)
 - **Trust update at start of operation:** ΔT = (A − 50) / 5 + B_target / 20 (uses the planned target, since actual B is still near zero at that point)
 - **Reputation:** +T / 10 when a park starts operating; new municipalities unlock at R ≥ 50, 70, 90
 
@@ -177,18 +182,21 @@ Grade D is given regardless of score if built capacity (including sold parks) is
 
 **Lose conditions:** money below 0 for 2 consecutive turns, or T below 5.
 
-## 11. Balance status (simulator, 200 games per strategy)
+## 11. Balance status (simulator, 1,000 games per strategy, v0.8)
 
 | | Careful | Balanced | Fast and cheap |
 |---|---|---|---|
-| Final cash | ~54 | ~68 | ~122 |
-| Net worth (cash + own share of operating parks) | ~187 | ~200 | ~126 |
-| 条例 enacted | ~11% | ~10% | ~99% |
-| Games lost | 0% | 0% | ~59% |
-| Average park score (0 to 14) | 13.5 | 11.1 | 1.9 |
+| Final cash | ~52 | ~70 | ~127 |
+| Net worth (cash + own share of operating parks) | ~184 | ~200 | ~131 |
+| 条例 enacted | ~13% | ~13% | ~99% |
+| Games lost | 0% | 0% | ~60% |
+| Average park score (0 to 14) | 13.6 | 11.1 | 1.9 |
 | Typical grade | S | A | D |
+| Parks selling at market prices | ~13% | ~5% | ~4% |
 
 All eight intended-outcome checks pass. Careful costs some money but gives the best results for nature and community; balanced earns slightly more with a weaker score; fast-and-cheap holds the most cash at high risk and with lasting regional damage.
+
+**Effect of the end of FIT/FIP (v0.8):** the numbers above are almost the same as in v0.7, because most parks that sell at market prices are submitted later and start operating near the end of the scenario. The rule works mainly through decisions and what players see: submit in the first year to secure FIT/FIP, or take more time for dialogue; promotion zones become more valuable; later parks earn less and less predictably. The simulator's computer players do not react to the deadline.
 
 **Ideas for the prototype stage (realism, values to be checked against real cases):** citizen fund uptake depends on acceptance, a one-turn subscription period, and an investor return slightly above the financing share.
 

@@ -92,6 +92,7 @@ Pick three or four. The policy notebook entry in brackets has the real-world bac
 
 **From the game to reality**
 - Did anyone build in a promotion zone? Why might a town designate one? (*Promotion zones (促進区域)*)
+- Did anyone rush to submit before fiscal year 2027 (turn 5)? Was it worth it? Which solar projects should still get public support, and why? (*FIT and FIP*)
 - What would a good solar project in your own town need? Who should be at the table from the start?
 - What surprised you?
 
@@ -123,5 +124,5 @@ More technical help, including installing the game as an app: [publishing.md](pu
 ## About the content
 
 - The game simplifies on purpose: its numbers are game values, not real costs, yields or permit times.
-- The policy notebook describes real Japanese policies as of its last review (see [policy-notebook.md](policy-notebook.md)). Policies change. For example, the government has decided to end FIT and FIP support for new ground-mounted solar projects of 10 kW and more from fiscal year 2027, while exceptions (for example for projects in promotion zones) were still being discussed in autumn 2026. The game does not reflect this yet.
-- The recommended scenario codes above are for the current version of the game (rules v0.7). If the rules change, they may play differently, and this guide will be updated.
+- The policy notebook describes real Japanese policies as of its last review (see [policy-notebook.md](policy-notebook.md)). Policies change. For example, the government has decided to end FIT and FIP support for new ground-mounted solar projects of 10 kW and more from fiscal year 2027, while exceptions (for example for projects in promotion zones) were still being discussed in autumn 2026. Since rules v0.8, the game reflects this: projects submitted from turn 5 (fiscal year 2027) sell at market prices, unless they get the promotion zone bonus. If the final decision on exceptions (expected around January 2027) differs, the game will be updated.
+- The recommended scenario codes above are for the current version of the game (rules v0.8). If the rules change, they may play differently, and this guide will be updated.

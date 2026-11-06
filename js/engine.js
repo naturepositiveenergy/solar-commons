@@ -1,4 +1,4 @@
-// Solar Commons: game rules engine (design document v0.7)
+// Solar Commons: game rules engine (design document v0.8)
 //
 // This file is the referee of the game. It knows every rule and number,
 // but it never draws anything on screen and contains no texts. Messages for
@@ -11,11 +11,12 @@
 (function (root) {
 'use strict';
 
-// ===== Numbers (design document v0.7) =====
+// ===== Numbers (design document v0.8) =====
 // All rule numbers in one place. The simulator can override them for testing.
 const DEFAULT_PARAMS = {
   // Game
   turns: 20,               // turns per scenario (1 turn = 1 quarter)
+  startFY: 2026,           // fiscal year of turn 1 (turn 1 = April to June); only for showing dates
   startMoney: 100,
   apPerTurn: 3,            // action points per turn
   startTrust: 50,
@@ -67,6 +68,8 @@ const DEFAULT_PARAMS = {
   buildTurns: 2,
   revMult: 0.6,            // revenue per capacity unit per turn
   fipThreshold: 30, fipMin: 0.8, fipMax: 1.2,
+  supportEndTurn: 5,       // projects submitted from this turn (fiscal year 2027) get no FIT/FIP (added in v0.8)
+  marketMin: 0.5, marketMax: 1.1,   // their revenue factor per turn: market prices, lower and varying
   decomShare: 0.05,        // decommissioning reserve
   bGrowth: 0.2,            // biodiversity growth per turn (share of the remaining gap)
   cheapDiscount: 0.3, cheapDamageMult: 2,
@@ -108,7 +111,7 @@ const STATUSES = ['design', 'permitting', 'approved', 'building', 'operating', '
 const MANAGEMENT = ['none', 'mowing', 'grazing'];
 // Version of the rules. Change it together with docs/design.md: saved games made
 // with other rules are not continued, because they would play differently.
-const RULES_VERSION = 'v0.7';
+const RULES_VERSION = 'v0.8';
 
 // ===== Helpers =====
 // Random numbers from a seed: the same seed always gives the same numbers.
@@ -137,7 +140,7 @@ function mix(...nums) {
 // code gets the same sites and the same events in the same turns, whatever they decide:
 // - sites of turn t:  only from the seed and t
 // - event of turn t:  only from the seed and t
-// - luck:             objections and market prices (FIP), which depend on the player's own projects
+// - luck:             objections and market prices (FIP and market sales), which depend on the player's own projects
 const STREAM_SITES = 1, STREAM_EVENTS = 2, STREAM_LUCK = 3;
 const turnRandom = (g, stream) => rng(mix(g.seed, stream, g.turn));
 
@@ -313,7 +316,7 @@ function startProject(g, siteIdx, design) {
     id: g.nextId++, site: site.type, promo: site.promo, promoActive: false, design: normalizeDesign(design), calc,
     S: S.map(s => clamp(s, -100, 100)), status: 'design', genuineBefore: false, genuineAny: false,
     fund: false, benefit: false, objections: 0, engaged: false, damaged: false, struck: false,
-    permitLeft: 0, buildLeft: 0, planningPaid: 0, B: calc.mod, finalA: null, sellTimer: 0, waitLogged: false
+    support: null, permitLeft: 0, buildLeft: 0, planningPaid: 0, B: calc.mod, finalA: null, sellTimer: 0, waitLogged: false
   };
   g.projects.push(p);
   g.sites.splice(siteIdx, 1);
@@ -382,14 +385,35 @@ function salePrice(p, P) { return p.calc.cost * P.sellMult; }
 function netRevenue(p, P, gross) {
   return gross - p.calc.mgmtCost - (p.fund ? gross * P.fundShare : 0) - gross * P.decomShare;
 }
-// Expected income per turn of a park without random effects (average FIP factor, no curtailment),
+// Expected income per turn of a park without random effects (average price factor, no curtailment),
 // after management, citizen fund share, decommissioning reserve and benefit agreement.
-// Also works for a planned design: { calc, fund, benefit }.
+// Also works for a planned design: { calc, promo, fund, benefit }.
 function expectedIncome(g, p) {
   const P = g.P;
-  const fip = p.calc.cap >= P.fipThreshold ? (P.fipMin + P.fipMax) / 2 : 1;
-  const gross = p.calc.cap * P.revMult * g.revFactor * fip;
+  const [lo, hi] = priceRange(P, supportScheme(g, p));
+  const gross = p.calc.cap * P.revMult * g.revFactor * (lo + hi) / 2;
   return netRevenue(p, P, gross) - (p.benefit ? P.benefitCost : 0);
+}
+
+// ===== Support schemes (section 6, changed in v0.8) =====
+// How a park sells its power: 'fit' (fixed price), 'fip' (price follows the market, with a premium)
+// or 'market' (no FIT/FIP: lower, varying market prices). Fixed when the project is submitted:
+// from turn supportEndTurn (fiscal year 2027), only projects with the promotion zone bonus keep FIT/FIP.
+function schemeAt(g, p, promoActive) {
+  const P = g.P;
+  if (g.turn >= P.supportEndTurn && !promoActive) return 'market';
+  return p.calc.cap >= P.fipThreshold ? 'fip' : 'fit';
+}
+// The scheme of a submitted project, or the one it would get if it were submitted now.
+// Also works for a planned design: { calc, promo, fund, benefit }.
+function supportScheme(g, p) { return p.support || schemeAt(g, p, promoQualifies(p)); }
+// Revenue factor range of a scheme: each turn, revenue is multiplied by a random factor in this range.
+function priceRange(P, scheme) {
+  return scheme === 'market' ? [P.marketMin, P.marketMax] : scheme === 'fip' ? [P.fipMin, P.fipMax] : [1, 1];
+}
+// Fiscal year and quarter of a turn, for showing dates (turn 1 = fiscal year startFY, April to June).
+function calendar(g, turn = g.turn) {
+  return { fy: g.P.startFY + Math.floor((turn - 1) / 4), quarter: (turn - 1) % 4 + 1 };
 }
 
 // ===== Permitting =====
@@ -412,14 +436,14 @@ function permitTurns(g, p, A, promoActive) {
   return Math.max(1, D);
 }
 
-// What submitting now would mean: { turns, A, cost, promo }.
+// What submitting now would mean: { turns, A, cost, promo, support }.
 // With { genuineFirst: true }: the same, after first holding a genuine 説明会.
 function submitPreview(g, p, opts = {}) {
   const P = g.P;
   const q = opts.genuineFirst ? { ...p, genuineBefore: true, S: shifted(p.S, P.genuineGain) } : p;
   const promo = !!promoQualifies(q);
   const A = acceptance(promo ? { ...q, S: shifted(q.S, P.promoA * 2) } : q, P);
-  return { turns: permitTurns(g, q, A, promo), A, cost: planningCost(q, P), promo };
+  return { turns: permitTurns(g, q, A, promo), A, cost: planningCost(q, P), promo, support: schemeAt(g, q, promo) };
 }
 
 // Objection probability per permitting turn (section 8). extraShift: a support change to assume first.
@@ -440,8 +464,10 @@ function submit(g, p) {
   if (promoQualifies(p)) { p.promoActive = true; shiftAll(p, P.promoA * 2); }
   const A = acceptance(p, P);
   p.permitLeft = permitTurns(g, p, A, p.promoActive);
+  p.support = schemeAt(g, p, p.promoActive);
   p.status = 'permitting';
-  log(g, p.genuineBefore ? 'log.submittedGenuine' : 'log.submitted', { id: p.id, turns: p.permitLeft, A });
+  log(g, p.genuineBefore ? 'log.submittedGenuine' : 'log.submitted',
+    { id: p.id, turns: p.permitLeft, A, support: msg('support.' + p.support) });
   return { ok: true };
 }
 
@@ -576,8 +602,9 @@ function endTurn(g) {
         if (p.site === 'forest' && p.calc.bTarget < 0) strike(g, msg('strike.forestNegativeB', { id: p.id }));
       }
     } else if (st === 'operating') {
-      const fip = p.calc.cap >= P.fipThreshold ? P.fipMin + g.luck() * (P.fipMax - P.fipMin) : 1;
-      const gross = p.calc.cap * P.revMult * g.revFactor * fip * g.curtail;
+      const [lo, hi] = priceRange(P, p.support);
+      const price = hi > lo ? lo + g.luck() * (hi - lo) : lo;
+      const gross = p.calc.cap * P.revMult * g.revFactor * price * g.curtail;
       const net = netRevenue(p, P, gross);
       g.money += net;
       p.B += P.bGrowth * (p.calc.bTarget - p.B);
@@ -596,6 +623,7 @@ function endTurn(g) {
   g.projects.forEach(p => { p.engaged = false; });
   g.hist.push({ money: g.money, T: g.T });
   g.turn++; g.ap = P.apPerTurn;
+  if (g.turn === P.supportEndTurn && !g.lost) log(g, 'log.supportEnded', { fy: calendar(g).fy });   // fiscal year 2027 begins
   genSites(g);
   if (g.lost || g.turn > P.turns) g.over = true;
 }
@@ -643,7 +671,7 @@ const api = {
   // questions the screens can ask (they never change the game)
   calcDesign, designProblem, countsFromMap, normalizeDesign, mapPlacement,
   wishesMet, effS, matches, acceptance, checkAction, visitTarget,
-  playerCost, planningCost, buildPayment, salePrice, expectedIncome,
+  playerCost, planningCost, buildPayment, salePrice, expectedIncome, supportScheme, priceRange, calendar,
   promoQualifies, sitePermitTurns, submitPreview, objectionChance, objectionPreview,
   // scoring
   scorePark, scoreGame

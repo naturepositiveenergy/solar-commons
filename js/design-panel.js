@@ -53,7 +53,7 @@
   function openNew(siteIndex) {
     const g = SC.session.game, site = g && g.sites[siteIndex];
     if (!site) return;
-    ctx = { mode: 'new', siteIndex, site: site.type, fund: false, benefit: false,
+    ctx = { mode: 'new', siteIndex, site: site.type, promo: site.promo, fund: false, benefit: false,
       design: { ...lastDesign }, returnKey: 'plan-' + siteIndex };
     open();
   }
@@ -61,7 +61,7 @@
   function openChange(id) {
     const g = SC.session.game, p = g && g.projects.find(x => x.id === id);
     if (!p || p.status !== 'design') return;
-    ctx = { mode: 'change', id, site: p.site, fund: p.fund, benefit: p.benefit,
+    ctx = { mode: 'change', id, site: p.site, promo: p.promo, fund: p.fund, benefit: p.benefit,
       design: withMap(p.design), returnKey: 'redesign-' + id };
     open();
   }
@@ -121,7 +121,7 @@
     const g = SC.session.game, P = g.P, d = ctx.design;
     const calc = E.calcDesign(d, ctx.site, P);
     const problem = E.designProblem(calc, P);
-    const planned = { site: ctx.site, design: d, calc, fund: ctx.fund, benefit: ctx.benefit, genuineBefore: false };
+    const planned = { site: ctx.site, promo: ctx.promo, design: d, calc, fund: ctx.fund, benefit: ctx.benefit, genuineBefore: false };
     const cost = E.playerCost(planned, P);
 
     const item = (label, value, mood) => `<div${mood ? ` class="is-${mood}"` : ''}><dt>${esc(label)}</dt><dd>${value}</dd></div>`;
@@ -148,7 +148,12 @@
     const lines = [];
     if (calc.cap > 0) {
       lines.push(`<p>${esc(t('design.income', { income: E.expectedIncome(g, planned), running }))} ${SC.notebook.infoButton('decommission')}</p>`);
-      lines.push(`<p class="muted">${esc(t(calc.cap >= P.fipThreshold ? 'design.fip' : 'design.fit', { min: P.fipThreshold }))} ${SC.notebook.infoButton('fitfip')}</p>`);
+      // how the park would sell its power if it were submitted now (section 6)
+      const scheme = E.supportScheme(g, planned);
+      const support = scheme === 'market'
+        ? t('design.market', { fy: E.calendar(g, P.supportEndTurn).fy }) + (ctx.promo ? ' ' + t('design.marketPromo') : '')
+        : t(scheme === 'fip' ? 'design.fip' : 'design.fit', { min: P.fipThreshold });
+      lines.push(`<p class="${scheme === 'market' ? 'is-warn' : 'muted'}">${esc(support)} ${SC.notebook.infoButton('fitfip')}</p>`);
     }
     lines.push(`<p class="muted">${esc(t('design.bTargetInfo'))}</p>`);
     if (cost > g.money) lines.push(`<p class="is-warn">${esc(t('design.moneyShort', { money: g.money }))}</p>`);

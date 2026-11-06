@@ -145,9 +145,11 @@ if (failures === beforeMap) console.log('  ✓ corridors and hedges follow the p
 // The game screen shows previews, for example "if you submit now: about 6 permit turns".
 // A random test player plays many games (also changing and dropping designs); each time it
 // submits, the preview from just before must match what the engine then actually did.
+// It also checks the end of FIT/FIP (design document section 6): projects submitted from turn
+// supportEndTurn sell at market prices, unless they get the promotion zone bonus.
 console.log('Preview check');
 const beforePreview = failures;
-let previews = 0;
+let previews = 0, marketSubmissions = 0, keptByPromo = 0;
 try {
   for (let i = 0; i < 300; i++) {
     const P = E.defaultParams();
@@ -173,9 +175,14 @@ try {
             if (E.submit(g, p).ok) {
               previews++;
               const A = E.acceptance(p, P);
-              if (p.permitLeft !== pre.turns || p.planningPaid !== pre.cost || Math.abs(A - pre.A) > 1e-9 || p.promoActive !== pre.promo) {
-                fail(`submit preview differs (seed ${seedOf(i)}, project ${p.id}): preview ${pre.turns} turns, A ${pre.A}; actual ${p.permitLeft} turns, A ${A}`);
+              if (p.permitLeft !== pre.turns || p.planningPaid !== pre.cost || Math.abs(A - pre.A) > 1e-9 || p.promoActive !== pre.promo || p.support !== pre.support) {
+                fail(`submit preview differs (seed ${seedOf(i)}, project ${p.id}): preview ${pre.turns} turns, A ${pre.A}, ${pre.support}; actual ${p.permitLeft} turns, A ${A}, ${p.support}`);
               }
+              const late = g.turn >= P.supportEndTurn;
+              const expected = late && !p.promoActive ? 'market' : p.calc.cap >= P.fipThreshold ? 'fip' : 'fit';
+              if (p.support !== expected) fail(`project ${p.id} submitted in turn ${g.turn} sells with ${p.support}, expected ${expected} (seed ${seedOf(i)})`);
+              if (p.support === 'market') marketSubmissions++;
+              if (late && p.promoActive) keptByPromo++;
             }
           } else if (roll < 0.6) E.dropProject(g, p);
           else if (roll < 0.7) E.changeDesign(g, p, { ...p.design, hedge: (p.design.hedge || 0) + 1, cheap: false });
@@ -189,7 +196,11 @@ try {
 } catch (e) {
   fail('the engine stopped with an error: ' + e.message);
 }
-if (failures === beforePreview) console.log(`  ✓ ${previews} submissions: every preview matched what happened`);
+if (failures === beforePreview) {
+  console.log(`  ✓ ${previews} submissions: every preview matched what happened`);
+  console.log(`  ✓ end of FIT/FIP: ${marketSubmissions} later submissions sell at market prices, ${keptByPromo} kept FIT/FIP with the promotion zone bonus`);
+  if (!marketSubmissions || !keptByPromo) fail('the test player never reached both cases of the end of FIT/FIP');
+}
 
 // ---------- 4. Save check ----------
 // Plays random games through the same session code the game uses (js/save.js). Now and then
