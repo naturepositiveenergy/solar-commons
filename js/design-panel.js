@@ -1,8 +1,8 @@
 // Solar Commons: the design panel, where a park is planned on a site (design document section 5).
 //
-// For now the design is chosen with numbers: how many tiles of each kind, the management
-// and whether to build cheaply. The 10 × 10 tile map replaces this in Milestone 3.
-// All totals shown here are calculated by the engine, so they match the game exactly.
+// The player paints the park on the site map (js/map-editor.js) and chooses the management
+// and whether to build cheaply. All totals shown here are calculated by the engine, so they
+// match the game exactly.
 
 (function (root) {
   'use strict';
@@ -10,19 +10,23 @@
   const E = root.SolarEngine;
   const { esc, fmt, openDialog, announce } = SC.ui;
   const $ = id => document.getElementById(id);
+  const MAP_TILES = E.MAP_SIDE * E.MAP_SIDE;
 
-  const EMPTY = { dense: 0, wide: 0, meadow: 0, hedge: 0, pond: 0, corridor: 0, mgmt: 'none', cheap: false };
-  let lastDesign = { ...EMPTY };   // a new plan starts from the previous design
+  const EMPTY = E.normalizeDesign({ map: SC.mapEditor.EMPTY_MAP, mgmt: 'none', cheap: false });
+  let lastDesign = EMPTY;          // a new plan starts from the previous design
+  let lastBrush = 'wide';          // and with the tile type used last
   let ctx = null;                  // what is being designed (see openNew and openChange)
+  let editor = null;               // the map editor while the panel is open
 
   // Text codes and numbers for each tile type
   const TILES = {
-    dense: { name: 'tile.dense', note: 'tileNote.dense', info: P => ['tileInfo.panel', { cost: P.denseCost, cap: P.denseCap }] },
-    wide: { name: 'tile.wide', note: 'tileNote.wide', info: P => ['tileInfo.widePanel', { cost: P.wideCost, cap: P.wideCap, b: P.wideB }] },
-    meadow: { name: 'tile.meadow', note: 'tileNote.meadow', info: P => ['tileInfo.nature', { cost: P.meadowCost, b: P.meadowB }] },
-    hedge: { name: 'tile.hedge', note: 'tileNote.hedge', info: P => ['tileInfo.nature', { cost: P.hedgeCost, b: P.hedgeB }] },
-    pond: { name: 'tile.pond', note: 'tileNote.pond', info: P => ['tileInfo.nature', { cost: P.pondCost, b: P.pondB }] },
-    corridor: { name: 'tile.corridor', note: 'tileNote.corridor', info: P => ['tileInfo.nature', { cost: P.corridorCost, b: P.corridorB }] }
+    dense: { note: 'tileNote.dense', info: P => ['tileInfo.panel', { cost: P.denseCost, cap: P.denseCap }] },
+    wide: { note: 'tileNote.wide', info: P => ['tileInfo.widePanel', { cost: P.wideCost, cap: P.wideCap, b: P.wideB }] },
+    meadow: { note: 'tileNote.meadow', info: P => ['tileInfo.nature', { cost: P.meadowCost, b: P.meadowB }] },
+    hedge: { note: 'tileNote.hedge', info: P => ['tileInfo.nature', { cost: P.hedgeCost, b: P.hedgeB }] },
+    pond: { note: 'tileNote.pond', info: P => ['tileInfo.nature', { cost: P.pondCost, b: P.pondB }] },
+    corridor: { note: 'tileNote.corridor', info: P => ['tileInfo.nature', { cost: P.corridorCost, b: P.corridorB }] },
+    empty: { note: 'tileNote.empty', info: null }
   };
   const MGMT = {
     none: { name: 'mgmt.none', info: () => ['mgmtInfo.none', {}] },
@@ -31,6 +35,19 @@
   };
   // The residents whose wishes depend on the design (the others depend on later actions)
   const DESIGN_WISHES = [0, 1, 3];   // farmer, elderly resident, nature group (order of E.RESIDENTS)
+
+  // Short text about a tile type, shown under the palette.
+  function describe(brush) {
+    const tile = TILES[brush], P = SC.session.game.P;
+    return tile.info ? `${t(...tile.info(P))}\n${t(tile.note)}` : t(tile.note);
+  }
+
+  // A design without a map (not made in this game version): lay its tiles out row by row.
+  function withMap(d) {
+    if (d.map) return E.normalizeDesign(d);
+    const letters = E.TILE_KEYS.map(k => E.TILE_LETTERS[k].repeat(d[k] || 0)).join('');
+    return E.normalizeDesign({ ...d, map: letters.padEnd(MAP_TILES, '.').slice(0, MAP_TILES) });
+  }
 
   // ----- Opening -----
   function openNew(siteIndex) {
@@ -45,7 +62,7 @@
     const g = SC.session.game, p = g && g.projects.find(x => x.id === id);
     if (!p || p.status !== 'design') return;
     ctx = { mode: 'change', id, site: p.site, fund: p.fund, benefit: p.benefit,
-      design: { ...EMPTY, ...p.design }, returnKey: 'redesign-' + id };
+      design: withMap(p.design), returnKey: 'redesign-' + id };
     open();
   }
 
@@ -55,44 +72,34 @@
       ? t('design.titleNew', { site: t('site.' + ctx.site) })
       : t('design.titleChange', { id: ctx.id });
     $('designForm').innerHTML = formHtml(P);
+    editor = SC.mapEditor.create($('mapEditor'), {
+      map: ctx.design.map,
+      brush: lastBrush,
+      describe,
+      onChange: map => { ctx.design = E.normalizeDesign({ ...ctx.design, map }); update(); }
+    });
     $('designCancel').textContent = t('common.cancel');
     $('designOk').textContent = t(ctx.mode === 'new' ? 'design.start' : 'design.save');
     update();
     openDialog($('designDialog'), { onClose: finish });
     $('designForm').scrollTop = 0;
-    $('designTitle').focus();   // the title, not a number field: that would open the keyboard on phones
+    $('designTitle').focus();   // the title, not the map: that would be confusing for screen readers
   }
 
   // ----- The form -----
   function formHtml(P) {
     const d = ctx.design;
-    const rows = E.TILE_KEYS.map(k => {
-      const tile = TILES[k], name = t(tile.name);
-      return `
-        <div class="tile-row">
-          <span class="tile tile-${k}" aria-hidden="true"></span>
-          <div class="tile-text">
-            <label class="tile-name" for="d-${k}">${esc(name)}</label>
-            <span class="tile-info">${esc(t(...tile.info(P)))}</span>
-            <span class="tile-note">${esc(t(tile.note))}</span>
-          </div>
-          <div class="stepper">
-            <button type="button" class="step" data-tile="${k}" data-step="-1" aria-label="${esc(t('design.less', { tile: name }))}">−</button>
-            <input id="d-${k}" type="number" inputmode="numeric" min="0" max="${P.maxTiles}" step="1" value="${d[k] || 0}" data-tile="${k}">
-            <button type="button" class="step" data-tile="${k}" data-step="1" aria-label="${esc(t('design.more', { tile: name }))}">+</button>
-          </div>
-        </div>`;
-    }).join('');
     const mgmt = E.MANAGEMENT.map(m => `
       <label class="choice">
         <input type="radio" name="mgmt" value="${m}"${d.mgmt === m ? ' checked' : ''}>
         <span><strong>${esc(t(MGMT[m].name))}</strong><small>${esc(t(...MGMT[m].info(P)))}</small></span>
       </label>`).join('');
     return `
-      <p class="design-intro">${esc(t('design.intro', { max: P.maxTiles }))}</p>
+      <p class="design-intro">${esc(t('design.intro', { size: E.MAP_SIDE }))}</p>
       <fieldset class="design-group">
         <legend>${esc(t('design.tilesTitle'))}</legend>
-        ${rows}
+        <div id="mapEditor"></div>
+        <div class="placement" id="placementInfo" aria-live="polite"></div>
       </fieldset>
       <fieldset class="design-group">
         <legend>${esc(t('design.mgmtTitle'))}</legend>
@@ -116,16 +123,25 @@
     const problem = E.designProblem(calc, P);
     const planned = { site: ctx.site, design: d, calc, fund: ctx.fund, benefit: ctx.benefit, genuineBefore: false };
     const cost = E.playerCost(planned, P);
-    const tilesOver = calc.tiles > P.maxTiles;
 
     const item = (label, value, mood) => `<div${mood ? ` class="is-${mood}"` : ''}><dt>${esc(label)}</dt><dd>${value}</dd></div>`;
     $('designSummary').innerHTML =
-      item(t('design.tiles'), `${calc.tiles}<span class="stat-goal"> / ${P.maxTiles}</span>`, tilesOver ? 'bad' : '') +
+      item(t('design.tiles'), `${calc.tiles}<span class="stat-goal"> / ${MAP_TILES}</span>`, '') +
       item(t('design.capacity'), fmt(calc.cap, 1), '') +
       item(t('design.cost'), fmt(cost, 1), cost > g.money ? 'warn' : '') +
       item(t('design.bTarget'), fmt(calc.bTarget, 0), '');
     $('designProblem').textContent = problem ? t(problem) : '';
     $('designOk').disabled = !!problem;
+
+    // Placement on the map: hedges on the edge, connected corridors
+    const place = E.mapPlacement(d.map);
+    const placement = [place.edgeHedges >= P.hedgesProtect
+      ? ['good', t('design.hedgesOk', { n: place.edgeHedges })]
+      : ['warn', t('design.hedgesLow', { n: place.edgeHedges, need: P.hedgesProtect })]];
+    if (place.looseCorridors) placement.push(['warn', t('design.corridorLoose')]);
+    else if (place.linkedCorridors) placement.push(['good', t('design.corridorOk')]);
+    $('placementInfo').innerHTML = placement.map(([mood, text]) =>
+      `<p class="is-${mood}"><span aria-hidden="true">${mood === 'good' ? '✓' : '!'}</span> ${esc(text)}</p>`).join('');
 
     const wish = E.wishesMet(planned);
     const running = calc.mgmtCost + (ctx.benefit ? P.benefitCost : 0);
@@ -143,33 +159,17 @@
     $('designDetails').innerHTML = lines.join('');
   }
 
-  function setTile(k, value) {
-    const v = Math.max(0, Math.min(SC.session.game.P.maxTiles, Math.round(Number(value) || 0)));
-    ctx.design[k] = v;
-    return v;
-  }
-
   function onInput(e) {
     const el = e.target;
-    if (el.dataset.tile && el.type === 'number') setTile(el.dataset.tile, el.value);
-    else if (el.name === 'mgmt') ctx.design.mgmt = el.value;
+    if (el.name === 'mgmt') ctx.design.mgmt = el.value;
     else if (el.id === 'd-cheap') ctx.design.cheap = el.checked;
     else return;
     update();
   }
 
-  function onClick(e) {
-    const b = e.target.closest('[data-step]');
-    if (!b) return;
-    const k = b.dataset.tile;
-    $('d-' + k).value = setTile(k, (ctx.design[k] || 0) + Number(b.dataset.step));
-    update();
-  }
-
-  // Tidy the number field when the player leaves it (for example an empty field becomes 0).
-  function onBlur(e) {
-    const el = e.target;
-    if (el.dataset && el.dataset.tile && el.type === 'number') el.value = ctx.design[el.dataset.tile] || 0;
+  // Enter in the form should not close the panel.
+  function onKey(e) {
+    if (e.key === 'Enter' && e.target.matches('input')) e.preventDefault();
   }
 
   // ----- Closing -----
@@ -177,6 +177,9 @@
     if (!ctx) return;   // already handled
     const done = ctx;
     ctx = null;
+    lastBrush = editor.getBrush();
+    editor.destroy();
+    editor = null;
     let focusKey = done.returnKey;
     if (value === 'ok') {
       const result = done.mode === 'new'
@@ -193,17 +196,9 @@
     SC.gameScreen.focusOn(focusKey);
   }
 
-  // Enter in a number field should not close the panel.
-  function onKey(e) {
-    if (e.key === 'Enter' && e.target.matches('input')) e.preventDefault();
-  }
-
   function init() {
     const form = $('designForm');
-    form.addEventListener('input', onInput);
     form.addEventListener('change', onInput);
-    form.addEventListener('click', onClick);
-    form.addEventListener('focusout', onBlur);
     form.addEventListener('keydown', onKey);
   }
 

@@ -54,6 +54,8 @@ Every time you push to the **main** branch, GitHub publishes the new version aut
 
 If you still see the old version, your browser is showing a saved copy. Force a fresh load with **Ctrl + F5** (Windows) or **Cmd + Shift + R** (Mac). GitHub tells browsers to keep files for up to 10 minutes.
 
+**Version number in the file links:** `index.html` and `prototype/simulator.html` load their files with a version number, for example `js/engine.js?v=m3`. After changing any of these files, change the version (for example `?v=m3` to `?v=m4`) everywhere. Browsers then load all the new files together instead of mixing new files with old saved copies. Claude does this as part of each update.
+
 ## Testing on your own computer first
 
 - **Quick check:** double-click `index.html`. The game opens in your browser without any server.

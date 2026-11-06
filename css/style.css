@@ -25,6 +25,8 @@
   --tile-hedge: #3F7F33;
   --tile-pond: #5B9BC4;
   --tile-corridor: #D2B97A;
+  --ground: #EAE5D6;        /* empty land on the map */
+  --ground-edge: #DCD3BC;   /* empty land on the outer ring of the map */
 
   --font-ja: "BIZ UDPGothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
   --font: "Atkinson Hyperlegible", var(--font-ja);
@@ -37,6 +39,7 @@
     --accent: #7DBE6D; --on-accent: #10200C; --pollen: #E5BE57;
     --good: #8CCB7C; --bad: #EE9077; --warn: #E5BE57; --info: #9FB4EE;
     --tile-panel: #31466B; --tile-meadow: #7E9A52; --tile-hedge: #3C6E32; --tile-pond: #3F7DA6; --tile-corridor: #A68E55;
+    --ground: #2B2C24; --ground-edge: #36362B;
     color-scheme: dark;
   }
 }
@@ -45,6 +48,7 @@
   --accent: #7DBE6D; --on-accent: #10200C; --pollen: #E5BE57;
   --good: #8CCB7C; --bad: #EE9077; --warn: #E5BE57; --info: #9FB4EE;
   --tile-panel: #31466B; --tile-meadow: #7E9A52; --tile-hedge: #3C6E32; --tile-pond: #3F7DA6; --tile-corridor: #A68E55;
+  --ground: #2B2C24; --ground-edge: #36362B;
   color-scheme: dark;
 }
 
@@ -157,6 +161,7 @@ html[lang="ja"] .title { letter-spacing: 0.02em; }
 .tile-hedge { background: var(--tile-hedge); border-radius: 40%; }
 .tile-pond { background: var(--tile-pond); border-radius: 35%; }
 .tile-corridor { background: var(--tile-corridor); }
+.tile-empty { background: var(--ground); box-shadow: inset 0 0 0 1px var(--line); }
 
 /* ----- Buttons ----- */
 .btn {
@@ -220,6 +225,7 @@ button:focus-visible, summary:focus-visible, h3[tabindex]:focus-visible { outlin
 .dialog-foot .dialog-actions { margin-top: 8px; }
 @media (max-width: 560px) {
   .dialog-head { padding: 12px 14px 6px; }
+  .dialog-head h2 { font-size: 1.1rem; }
   .dialog-scroll { padding: 10px 14px 16px; }
   .dialog-foot { padding: 8px 14px 10px; }
 }

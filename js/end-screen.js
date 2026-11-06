@@ -38,7 +38,10 @@
           <h3>${esc(t('project.name', { id: p.id }))} <span class="project-site">${esc(t('site.' + p.site))}</span></h3>
           <span class="score-total">${esc(t('end.points', { total: sc.total, max: MAX_POINTS }))}</span>
         </div>
-        <p class="facts-line">${esc(t('end.parkFacts', { cap: p.calc.cap, b: p.B, status: t('status.' + p.status) }))}</p>
+        <div class="project-top">
+          <p class="facts-line">${esc(t('end.parkFacts', { cap: p.calc.cap, b: p.B, status: t('status.' + p.status) }))}</p>
+          ${SC.mapEditor.miniMapHtml(p.design)}
+        </div>
         <ul class="score-list">${Object.entries(CATEGORIES).map(([k, [name, how]]) => `
           <li class="is-${sc[k]}">
             <span class="score-mark" aria-hidden="true">${MARKS[sc[k]]}</span>

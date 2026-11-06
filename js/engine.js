@@ -1,4 +1,4 @@
-// Solar Commons: game rules engine (design document v0.5)
+// Solar Commons: game rules engine (design document v0.6)
 //
 // This file is the referee of the game. It knows every rule and number,
 // but it never draws anything on screen and contains no texts. Messages for
@@ -11,7 +11,7 @@
 (function (root) {
 'use strict';
 
-// ===== Numbers (design document v0.5) =====
+// ===== Numbers (design document v0.6) =====
 // All rule numbers in one place. The simulator can override them for testing.
 const DEFAULT_PARAMS = {
   // Game
@@ -108,7 +108,7 @@ const STATUSES = ['design', 'permitting', 'approved', 'building', 'operating', '
 const MANAGEMENT = ['none', 'mowing', 'grazing'];
 // Version of the rules. Change it together with docs/design.md: saved games made
 // with other rules are not continued, because they would play differently.
-const RULES_VERSION = 'v0.5';
+const RULES_VERSION = 'v0.6';
 
 // ===== Helpers =====
 // Random numbers from a seed: the same seed always gives the same game.
@@ -127,24 +127,95 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function msg(key, vars) { return vars ? { key, vars } : { key }; }
 function log(g, key, vars) { g.log.push({ turn: g.turn, msg: msg(key, vars) }); }
 
+// ===== The site map (section 5, added in v0.6) =====
+// A design can carry a map of the site: MAP_SIDE × MAP_SIDE tiles, stored as a text with
+// one letter per tile, row by row ('.' = empty). With a map, the tile counts come from the
+// map and placement matters. Without a map (as in the simulator), the tile counts are used
+// and placement is assumed to be good, exactly as before v0.6.
+const MAP_SIDE = 10;
+const TILE_LETTERS = { dense: 'd', wide: 'w', meadow: 'm', hedge: 'h', pond: 'p', corridor: 'c' };
+const LETTER_TILE = Object.fromEntries(Object.entries(TILE_LETTERS).map(([k, v]) => [v, k]));
+const HABITAT = ['m', 'h', 'p'];   // meadow, hedge and pond: what a corridor has to connect to
+
+// Tile counts of a map, for example { dense: 12, wide: 0, meadow: 6, ... }
+function countsFromMap(map) {
+  const counts = {};
+  TILE_KEYS.forEach(k => { counts[k] = 0; });
+  for (const letter of map) if (LETTER_TILE[letter]) counts[LETTER_TILE[letter]]++;
+  return counts;
+}
+
+// A copy of a design, with its tile counts taken from its map if it has one.
+function normalizeDesign(design) {
+  return design.map ? { ...design, ...countsFromMap(design.map) } : { ...design };
+}
+
+// Placement on the map (tiles touch side by side, not diagonally):
+// - edgeHedges: hedge tiles on the outer ring of the site; only these shelter and screen the park
+// - linkedCorridors: corridor tiles in groups that touch both the edge and a meadow, hedge or pond
+// - looseCorridors and looseCells: the other corridor tiles, and where they are
+function mapPlacement(map) {
+  const N = MAP_SIDE;
+  const at = i => map[i] || '.';
+  const onEdge = i => { const r = Math.floor(i / N), c = i % N; return r === 0 || c === 0 || r === N - 1 || c === N - 1; };
+  const neighbours = i => {
+    const r = Math.floor(i / N), c = i % N, out = [];
+    if (r > 0) out.push(i - N);
+    if (r < N - 1) out.push(i + N);
+    if (c > 0) out.push(i - 1);
+    if (c < N - 1) out.push(i + 1);
+    return out;
+  };
+  let edgeHedges = 0, linkedCorridors = 0;
+  const looseCells = [], seen = new Array(N * N).fill(false);
+  for (let i = 0; i < N * N; i++) {
+    if (at(i) === 'h' && onEdge(i)) edgeHedges++;
+    if (at(i) !== 'c' || seen[i]) continue;
+    // collect one group of corridor tiles that touch each other
+    const group = [i];
+    let edge = false, habitat = false;
+    seen[i] = true;
+    for (let k = 0; k < group.length; k++) {
+      if (onEdge(group[k])) edge = true;
+      for (const nb of neighbours(group[k])) {
+        if (at(nb) === 'c' && !seen[nb]) { seen[nb] = true; group.push(nb); }
+        if (HABITAT.includes(at(nb))) habitat = true;
+      }
+    }
+    if (edge && habitat) linkedCorridors += group.length;
+    else looseCells.push(...group);
+  }
+  return { edgeHedges, linkedCorridors, looseCorridors: looseCells.length, looseCells };
+}
+
+// Hedges that shelter and screen the park, and corridor tiles that count (section 5).
+// Without a map all of them count, as before v0.6.
+const screenHedges = (d, calc) => (calc.screenHedges !== undefined ? calc.screenHedges : (d.hedge || 0));
+const linkedCorridors = (d, calc) => (calc.linkedCorridors !== undefined ? calc.linkedCorridors : (d.corridor || 0));
+
 // ===== Design =====
-function calcDesign(d, site, P) {
+function calcDesign(design, site, P) {
+  const d = design.map ? normalizeDesign(design) : design;
+  const place = d.map ? mapPlacement(d.map) : null;
   const n = k => d[k] || 0;
+  const corridors = place ? place.linkedCorridors : n('corridor');   // only connected corridor tiles count
   const cap = n('dense') * P.denseCap + n('wide') * P.wideCap;
   let cost = n('dense') * P.denseCost + n('wide') * P.wideCost + n('meadow') * P.meadowCost +
-    n('hedge') * P.hedgeCost + n('pond') * P.pondCost + n('corridor') * P.corridorCost;
+    n('hedge') * P.hedgeCost + n('pond') * P.pondCost + n('corridor') * P.corridorCost;   // every tile costs
   if (site === 'forest') cost *= (1 + P.drainageCost);
   if (d.cheap) cost *= (1 - P.cheapDiscount);
   let pts = n('wide') * P.wideB + n('meadow') * P.meadowB + n('hedge') * P.hedgeB +
-    n('pond') * P.pondB + n('corridor') * P.corridorB;
-  let types = ['wide', 'meadow', 'hedge', 'pond', 'corridor'].filter(k => n(k) > 0).length;
+    n('pond') * P.pondB + corridors * P.corridorB;
+  let types = ['wide', 'meadow', 'hedge', 'pond'].filter(k => n(k) > 0).length + (corridors > 0 ? 1 : 0);
   if (d.mgmt === 'mowing') { pts += P.mowingB; types++; }
   if (d.mgmt === 'grazing') { pts += P.grazingB; types++; }
   const mod = site === 'forest' ? P.forestBMod : 0;
   const bTarget = Math.min(100, pts + P.diversityBonus * Math.max(0, types - 1)) + mod;
   const tiles = TILE_KEYS.reduce((s, k) => s + n(k), 0);
   const mgmtCost = d.mgmt === 'mowing' ? P.mowingCost : d.mgmt === 'grazing' ? P.grazingCost : 0;
-  return { cap, cost, bTarget, types, tiles, mgmtCost, mod };
+  const calc = { cap, cost, bTarget, types, tiles, mgmtCost, mod };
+  if (place) { calc.screenHedges = place.edgeHedges; calc.linkedCorridors = place.linkedCorridors; }
+  return calc;
 }
 
 // ===== Game state =====
@@ -178,7 +249,7 @@ function wishesMet(p) {
   const d = p.design;
   return [
     p.site === 'agri' || (p.site === 'farmland' && (d.wide || 0) >= (d.dense || 0) && (d.wide || 0) > 0),
-    !d.cheap && (d.hedge || 0) >= 3 && p.site !== 'forest',
+    !d.cheap && screenHedges(d, p.calc) >= 3 && p.site !== 'forest',
     p.fund || p.benefit,
     p.calc.bTarget >= 40,
     p.genuineBefore
@@ -217,7 +288,7 @@ function startProject(g, siteIdx, design) {
   if (site.type === 'agri') S[0] += P.agriFarmerBonus;
   if (site.type === 'forest') { S[1] -= P.forestPenalty; S[3] -= P.forestPenalty; }
   const p = {
-    id: g.nextId++, site: site.type, promo: site.promo, promoActive: false, design: { ...design }, calc,
+    id: g.nextId++, site: site.type, promo: site.promo, promoActive: false, design: normalizeDesign(design), calc,
     S: S.map(s => clamp(s, -100, 100)), status: 'design', genuineBefore: false, genuineAny: false,
     fund: false, benefit: false, objections: 0, engaged: false, damaged: false, struck: false,
     permitLeft: 0, buildLeft: 0, planningPaid: 0, B: calc.mod, finalA: null, sellTimer: 0, waitLogged: false
@@ -235,7 +306,7 @@ function changeDesign(g, p, design) {
   const calc = calcDesign(design, p.site, g.P);
   const problem = designProblem(calc, g.P);
   if (problem) return { ok: false, msg: problem };
-  p.design = { ...design }; p.calc = calc;
+  p.design = normalizeDesign(design); p.calc = calc;
   log(g, 'log.designChanged', { id: p.id, cap: calc.cap, cost: calc.cost });
   return { ok: true };
 }
@@ -390,7 +461,7 @@ function rollEvent(g) {
   if (ev === 0) {
     let hit = 0;
     live.forEach(p => {
-      if ((p.design.hedge || 0) < P.hedgesProtect) {
+      if (screenHedges(p.design, p.calc) < P.hedgesProtect) {
         g.money -= P.typhoonDamage * (p.design.cheap ? P.cheapDamageMult : 1); p.damaged = true; hit++;
         if (p.design.cheap && !p.struck) { p.struck = true; strike(g, msg('strike.cheapDamaged', { id: p.id })); }
       }
@@ -506,12 +577,13 @@ function endTurn(g) {
 // ===== Scoring (section 10) =====
 function scorePark(p, P) {
   const d = p.design;
-  const types = ['meadow', 'hedge', 'pond', 'corridor'].filter(k => (d[k] || 0) > 0).length + ((d.wide || 0) > 0 ? 1 : 0);
+  const types = ['meadow', 'hedge', 'pond'].filter(k => (d[k] || 0) > 0).length +
+    (linkedCorridors(d, p.calc) > 0 ? 1 : 0) + ((d.wide || 0) > 0 ? 1 : 0);
   const s = {
     site: ['brownfield', 'farmland', 'agri'].includes(p.site) || p.promoActive ? 2 : p.site === 'reservoir' ? 1 : 0,
     natAct: types >= 3 && d.mgmt !== 'none' ? 2 : types >= 1 ? 1 : 0,
     natRes: p.B >= 60 ? 2 : p.B >= 30 ? 1 : 0,
-    safety: !d.cheap && (d.hedge || 0) >= 3 ? 2 : !d.cheap ? 1 : 0,
+    safety: !d.cheap && screenHedges(d, p.calc) >= 3 ? 2 : !d.cheap ? 1 : 0,
     community: p.genuineBefore && p.objections === 0 ? 2 : (p.genuineAny || p.objections <= 1) ? 1 : 0,
     benefit: p.fund || p.benefit ? 2 : 0,
     longterm: p.status === 'sold' ? 0 : p.damaged ? 1 : 2
@@ -539,10 +611,12 @@ function scoreGame(g) {
 const api = {
   // lists and numbers
   defaultParams, SITE_TYPES, RESIDENTS, TILE_KEYS, ACTIONS, STATUSES, MANAGEMENT, RULES_VERSION,
+  MAP_SIDE, TILE_LETTERS,
   // game and player actions
   rng, clamp, newGame, startProject, changeDesign, dropProject, doAction, submit, sell, endTurn,
   // questions the screens can ask (they never change the game)
-  calcDesign, designProblem, wishesMet, effS, matches, acceptance, checkAction, visitTarget,
+  calcDesign, designProblem, countsFromMap, normalizeDesign, mapPlacement,
+  wishesMet, effS, matches, acceptance, checkAction, visitTarget,
   playerCost, planningCost, buildPayment, salePrice, expectedIncome,
   promoQualifies, sitePermitTurns, submitPreview, objectionChance, objectionPreview,
   // scoring

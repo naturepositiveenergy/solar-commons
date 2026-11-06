@@ -1,8 +1,10 @@
 # Solar Commons (working title)
 
-**Game Design Document v0.5** | Christian Doedt | Draft for discussion
+**Game Design Document v0.6** | Christian Doedt | Draft for discussion
 
-*Changes in v0.5: before submission, a design can be changed and a project can be dropped without penalty (section 5). All numbers are unchanged from v0.4.*
+*Changes in v0.6: placement on the 10 × 10 map matters. Only hedges on the edge of the site shelter and screen the park, and corridors count only when connected (section 5). All numbers are unchanged from v0.4.*
+
+*Changes in v0.5: before submission, a design can be changed and a project can be dropped without penalty (section 5).*
 
 ## 1. Concept
 
@@ -62,6 +64,11 @@ Each site has a 20% chance of lying in a promotion zone (促進区域). If the p
 
 **Management** (one choice per park): none, extensive mowing (B +5, cost 0.5 per turn), or grazing (B +8, cost 1 per turn). Mowing and grazing include no herbicides.
 
+**Placement:** tiles are painted on the 10 × 10 map of the site. Two placement rules apply (tiles touch side by side, not diagonally):
+
+- **Hedges on the edge:** only hedges on the outer ring of the site shelter the park and screen it from view. They count for typhoon protection, the elderly resident's wish and the safety score. Hedges inside the site still give biodiversity points.
+- **Connected corridors:** a group of corridor tiles counts only if it touches both the edge of the site and a meadow, hedge or pond. Corridor tiles that are not connected still cost money, but give no biodiversity points and do not count as a measure type.
+
 **Changing plans:** until a project is submitted, its design can be changed at any time, for example after talking with residents. A project that has not been submitted can also be dropped without penalty: the site and any action points already spent are lost, and a benefit agreement ends.
 
 **Residents:** farmer, elderly resident, young family, nature group, 自治会 leader, each with support S from −100 to +100. Starting S = (T − 50) × 2, so a new project starts with A = T.
@@ -81,7 +88,7 @@ Each site has a 20% chance of lying in a promotion zone (促進区域). If the p
 | Resident | Condition |
 |---|---|
 | Farmer | Agrivoltaics site, or farmland with at least as many wide as dense panels |
-| Elderly resident | No cheap build, at least 3 hedges, not a forest site |
+| Elderly resident | No cheap build, at least 3 hedges on the edge, not a forest site |
 | Young family | Citizen fund or benefit agreement |
 | Nature group | Biodiversity target ≥ 40 |
 | 自治会 leader | Genuine 説明会 before submission |
@@ -128,7 +135,7 @@ This strategy is deliberately attractive in the short term.
 - **Permit duration:** D = base + policy turns + 条例 turns + max(0, ⌈(60 − A) / 15⌉) − early genuine 説明会 bonus − promotion zone bonus (minimum 1)
 - **Objection probability per permitting turn:** P_obj = 0.25 × ((100 − A) / 100) × site risk
 - **Objection effect:** delay +1 turn, all S −5. Three objections, or A below 20, cancels the project (T −8, one strike)
-- **Biodiversity target:** B_target = min(100, tile and management points + 5 × (distinct measure types − 1)) + site modifier. Wide panels, each nature tile type, and management each count as one measure type. During operation, B grows by 20% of the remaining gap per turn
+- **Biodiversity target:** B_target = min(100, tile and management points + 5 × (distinct measure types − 1)) + site modifier. Wide panels, each nature tile type, and management each count as one measure type. Corridor tiles count only when connected (section 5). During operation, B grows by 20% of the remaining gap per turn
 - **Revenue per turn:** capacity × 0.6 × policy factor × FIP factor × curtailment − management cost − citizen fund share − decommissioning reserve
 - **Trust update at start of operation:** ΔT = (A − 50) / 5 + B_target / 20 (uses the planned target, since actual B is still near zero at that point)
 - **Reputation:** +T / 10 when a park starts operating; new municipalities unlock at R ≥ 50, 70, 90
@@ -137,7 +144,7 @@ This strategy is deliberately attractive in the short term.
 
 | Event | Effect |
 |---|---|
-| Typhoon | Parks with fewer than 3 hedges lose 5 (×2 if cheap build, plus a strike) |
+| Typhoon | Parks with fewer than 3 hedges on the edge lose 5 (×2 if cheap build, plus a strike) |
 | Heavy rain | Forest parks lose 15 (cheap build: T −5 and a strike); non-forest cheap builds lose 10 and get a strike |
 | Grid connection delay | One project in permitting or construction +1 to 3 turns |
 | Curtailment | Revenue ×0.7 this turn |
@@ -155,7 +162,7 @@ At the end of the scenario, each built park (operating or sold) is rated in seve
 | Site selection | Brownfield, farmland, agrivoltaics, or active promotion zone | Reservoir | Forest |
 | Nature, actions | 3+ measure types and mowing or grazing | 1+ measure type | None |
 | Nature, results | B ≥ 60 at end | B ≥ 30 | Below 30 |
-| Safety and landscape | No cheap build, 3+ hedges | No cheap build | Cheap build |
+| Safety and landscape | No cheap build, 3+ hedges on the edge | No cheap build | Cheap build |
 | Community process | Genuine 説明会 before submission, no objections | Any genuine 説明会 or max. 1 objection | Otherwise |
 | Local benefit | Citizen fund or benefit agreement | | None |
 | Long-term responsibility | Kept, never damaged | Kept, damaged | Sold |
@@ -181,7 +188,7 @@ All eight intended-outcome checks pass. Careful costs some money but gives the b
 
 **Ideas for the prototype stage (realism, values to be checked against real cases):** citizen fund uptake depends on acceptance, a one-turn subscription period, and an investor return slightly above the financing share.
 
-**Simplifications in the simulator:** corridors always count as connected (no spatial map yet), and the 営農型 renewal check is not yet modelled.
+**Simplifications in the simulator:** its computer players do not draw maps, so it assumes good placement (all hedges on the edge, all corridors connected). The 営農型 renewal check is not yet modelled.
 
 ## 12. MVP scope
 

@@ -12,8 +12,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="css/game.css">
+<!-- ?v=... makes browsers load fresh copies after an update: change it with every update (see docs/publishing.md) -->
+<link rel="stylesheet" href="css/style.css?v=m3">
+<link rel="stylesheet" href="css/game.css?v=m3">
 </head>
 <body>
 <div class="app">
@@ -94,15 +95,16 @@
 
 <!-- Order matters: language system, texts (Japanese first = first in the switch), rules,
      helpers, then the screens, and main.js last -->
-<script src="js/i18n.js"></script>
-<script src="lang/ja.js"></script>
-<script src="lang/en.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/save.js"></script>
-<script src="js/game-screen.js"></script>
-<script src="js/design-panel.js"></script>
-<script src="js/end-screen.js"></script>
-<script src="js/main.js"></script>
+<script src="js/i18n.js?v=m3"></script>
+<script src="lang/ja.js?v=m3"></script>
+<script src="lang/en.js?v=m3"></script>
+<script src="js/engine.js?v=m3"></script>
+<script src="js/ui.js?v=m3"></script>
+<script src="js/save.js?v=m3"></script>
+<script src="js/game-screen.js?v=m3"></script>
+<script src="js/map-editor.js?v=m3"></script>
+<script src="js/design-panel.js?v=m3"></script>
+<script src="js/end-screen.js?v=m3"></script>
+<script src="js/main.js?v=m3"></script>
 </body>
 </html>

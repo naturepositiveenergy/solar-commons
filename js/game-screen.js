@@ -132,11 +132,14 @@
       <div class="card-head">
         <h3 tabindex="-1" data-key="title-${p.id}">${esc(t('project.name', { id: p.id }))} <span class="project-site">${esc(t('site.' + p.site))}</span></h3>
         <span class="badge is-${p.status}">${esc(t('status.' + p.status))}</span>
-      </div>
+      </div>`;
+    const facts = `
       <p class="facts-line">${esc(t('project.facts', { cap: p.calc.cap, cost: p.calc.cost, b: p.calc.bTarget }))}
         ${p.promo ? `<span class="tag is-promo">${esc(t('sites.promo'))}</span>` : ''}</p>`;
+    // the facts and status on the left, a small map of the park on the right
+    const top = inner => `<div class="project-top"><div>${facts}${inner}</div>${SC.mapEditor.miniMapHtml(p.design)}</div>`;
     if (ENDED.includes(p.status)) {
-      return `<article class="card project-card is-ended">${head}<p class="state-line">${esc(t(ENDED_TEXT[p.status]))}</p></article>`;
+      return `<article class="card project-card is-ended">${head}${top(`<p class="state-line">${esc(t(ENDED_TEXT[p.status]))}</p>`)}</article>`;
     }
     const lines = stateLines(g, p).map(([text, mood]) => `<p class="state-line${mood ? ' is-' + mood : ''}">${esc(text)}</p>`).join('');
     const support = SUPPORT_MATTERS.includes(p.status);
@@ -144,8 +147,7 @@
     return `
       <article class="card project-card">
         ${head}
-        ${support ? acceptanceHtml(E.acceptance(p, g.P)) : ''}
-        <div class="state">${lines}</div>
+        ${top((support ? acceptanceHtml(E.acceptance(p, g.P)) : '') + `<div class="state">${lines}</div>`)}
         ${support ? residentsHtml(g, p) : ''}
         ${canTalk ? talkHtml(g, p) : ''}
         ${!g.over ? buttonsHtml(g, p) : ''}

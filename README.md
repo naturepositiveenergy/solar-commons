@@ -24,6 +24,7 @@ No installation or server is needed.
 | `js/save.js` | The current game: passes every action to the engine and saves the game in the browser |
 | `js/game-screen.js` | The game screen: status bar, sites, projects, End turn, turn report, log |
 | `js/design-panel.js` | The design panel for planning a park |
+| `js/map-editor.js` | The 10 × 10 site map: painting tiles, and the small maps on cards |
 | `js/end-screen.js` | The end screen with the final grade |
 | `js/main.js` | The start screen and switching between screens |
 | `lang/en.js`, `lang/ja.js` | All English and Japanese texts |

@@ -7,10 +7,11 @@
 //    If anything differs, a rule or a number has changed.
 //    After a rule change that has been approved, renew the reference on purpose with:
 //      node tests/check.js --update
-// 2. Preview check: what the screens promise before an action (for example the permit time
+// 2. Map check: the placement rules (hedges on the edge, connected corridors) on example maps.
+// 3. Preview check: what the screens promise before an action (for example the permit time
 //    if you submit now) matches what the engine then actually does.
-// 3. Save check: a game continued from its save (after a page reload) is identical.
-// 4. Text check: both language files have the same text codes and placeholders,
+// 4. Save check: a game continued from its save (after a page reload) is identical.
+// 5. Text check: both language files have the same text codes and placeholders,
 //    and every text code used in the code exists.
 
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto');
@@ -79,7 +80,58 @@ if (update) {
   if (!failures) console.log(`  ✓ ${checked} games play exactly as in the reference`);
 }
 
-// ---------- 2. Preview check ----------
+// A random site map (used by the test players below): one letter per tile, '.' = empty
+const LETTERS = 'ddwwwmmhhpc......';
+const randomMap = r => Array.from({ length: E.MAP_SIDE * E.MAP_SIDE }, () => LETTERS[Math.floor(r() * LETTERS.length)]).join('');
+
+// ---------- 2. Map check ----------
+// The placement rules of design document section 5 (v0.6), checked on small example maps.
+console.log('Map check');
+const beforeMap = failures;
+{
+  const P = E.defaultParams();
+  const EMPTY_ROW = '..........';
+  // Build a map from up to 10 rows; missing rows are empty.
+  const mapOf = (...rows) => [...rows, ...Array(E.MAP_SIDE - rows.length).fill(EMPTY_ROW)].join('');
+  const place = map => E.mapPlacement(map);
+  const expect = (ok, text) => { if (!ok) fail('map rule: ' + text); };
+
+  // Corridors: a group counts only if it touches the edge and a meadow, hedge or pond (side by side)
+  expect(place(mapOf('c.........', 'cm........')).linkedCorridors === 2, 'a corridor from the edge to a meadow counts');
+  expect(place(mapOf(EMPTY_ROW, EMPTY_ROW, EMPTY_ROW, EMPTY_ROW, '....ccm...')).looseCorridors === 2, 'a corridor away from the edge does not count');
+  expect(place(mapOf('.....c....')).looseCorridors === 1, 'a corridor without a meadow, hedge or pond does not count');
+  expect(place(mapOf('c.........', '.m........')).looseCorridors === 1, 'touching only diagonally does not count');
+  expect(place(mapOf('h.........', 'c.........', 'c.........', '.....c....')).linkedCorridors === 2, 'only the connected group counts');
+
+  // Hedges: only hedges on the outer ring shelter and screen the park
+  const hedgeMap = mapOf('.hhh......', EMPTY_ROW, EMPTY_ROW, EMPTY_ROW, EMPTY_ROW, '.....hh...', EMPTY_ROW, EMPTY_ROW, EMPTY_ROW, 'wwwwwwwwww');
+  const hedgeCalc = E.calcDesign({ map: hedgeMap, mgmt: 'none' }, 'farmland', P);
+  expect(place(hedgeMap).edgeHedges === 3 && hedgeCalc.screenHedges === 3, '3 of 5 hedges are on the edge');
+  expect(E.normalizeDesign({ map: hedgeMap }).hedge === 5, 'all 5 hedges are counted as tiles');
+
+  // A well-placed map gives the same result as the same tiles without a map (as in the simulator)
+  const good = { map: mapOf('hhhhhhhhhh', 'cwwwwwwwwh', 'cmmmppmmmh', 'hddddddddh'), mgmt: 'grazing', cheap: false };
+  const counts = { ...E.countsFromMap(good.map), mgmt: 'grazing', cheap: false };
+  const a = E.calcDesign(good, 'farmland', P), b = E.calcDesign(counts, 'farmland', P);
+  expect(['cap', 'cost', 'bTarget', 'types', 'tiles'].every(k => a[k] === b[k]), 'a well-placed map equals the same tiles without a map');
+
+  // A loose corridor costs money but adds no biodiversity and no measure type
+  const withLoose = mapOf('hhhhhhhhhh', 'hwwwwwwwwh', 'hwww.c.wwh');
+  const without = mapOf('hhhhhhhhhh', 'hwwwwwwwwh', 'hwww...wwh');
+  const c1 = E.calcDesign({ map: withLoose, mgmt: 'none' }, 'brownfield', P), c2 = E.calcDesign({ map: without, mgmt: 'none' }, 'brownfield', P);
+  expect(c1.bTarget === c2.bTarget && c1.types === c2.types && c1.cost === c2.cost + P.corridorCost, 'a loose corridor adds cost only');
+
+  // The elderly resident's wish and the safety score use the hedges on the edge
+  const planned = map => { const design = E.normalizeDesign({ map, mgmt: 'none', cheap: false }); return { site: 'farmland', design, calc: E.calcDesign(design, 'farmland', P) }; };
+  const inner = planned(mapOf(EMPTY_ROW, '.hhhh.....', 'wwwwwwwwww'));
+  const edge = planned(mapOf('hhh.......', EMPTY_ROW, 'wwwwwwwwww'));
+  expect(!E.wishesMet(inner)[1] && E.wishesMet(edge)[1], "the elderly resident's wish needs hedges on the edge");
+  const park = x => ({ ...x, status: 'operating', B: 0, objections: 0, damaged: false });
+  expect(E.scorePark(park(inner), P).safety === 1 && E.scorePark(park(edge), P).safety === 2, 'the safety score needs hedges on the edge');
+}
+if (failures === beforeMap) console.log('  ✓ corridors and hedges follow the placement rules');
+
+// ---------- 3. Preview check ----------
 // The game screen shows previews, for example "if you submit now: about 6 permit turns".
 // A random test player plays many games (also changing and dropping designs); each time it
 // submits, the preview from just before must match what the engine then actually did.
@@ -95,10 +147,10 @@ try {
     while (!g.over) {
       if (g.sites.length && r() < 0.5) {
         const n = k => Math.floor(r() * k);
-        E.startProject(g, n(g.sites.length), {
-          dense: n(15), wide: n(15), meadow: n(6), hedge: n(6), pond: n(3), corridor: n(3),
-          mgmt: pick(['none', 'mowing', 'grazing']), cheap: r() < 0.3
-        });
+        const extra = { mgmt: pick(['none', 'mowing', 'grazing']), cheap: r() < 0.3 };
+        E.startProject(g, n(g.sites.length), r() < 0.5
+          ? { map: randomMap(r), ...extra }
+          : { dense: n(15), wide: n(15), meadow: n(6), hedge: n(6), pond: n(3), corridor: n(3), ...extra });
       }
       for (const p of g.projects) {
         if (p.status === 'design') {
@@ -129,7 +181,7 @@ try {
 }
 if (failures === beforePreview) console.log(`  ✓ ${previews} submissions: every preview matched what happened`);
 
-// ---------- 3. Save check ----------
+// ---------- 4. Save check ----------
 // Plays random games through the same session code the game uses (js/save.js). Now and then
 // it throws the game away and continues it from the save: the continued game must be
 // identical, and must go on with the same random numbers.
@@ -149,8 +201,10 @@ try {
     const r = E.rng(seedOf(i) + 2);
     const n = k => Math.floor(r() * k);
     const pick = list => list[n(list.length)];
-    const design = () => ({ dense: n(12), wide: n(12), meadow: n(5), hedge: n(5), pond: n(3), corridor: n(3),
-      mgmt: pick(['none', 'mowing', 'grazing']), cheap: r() < 0.3 });
+    const design = () => (r() < 0.7
+      ? { map: randomMap(r), mgmt: pick(['none', 'mowing', 'grazing']), cheap: r() < 0.3 }
+      : { dense: n(12), wide: n(12), meadow: n(5), hedge: n(5), pond: n(3), corridor: n(3),
+        mgmt: pick(['none', 'mowing', 'grazing']), cheap: r() < 0.3 });
     session.start();
     for (let step = 0; step < 500 && !session.game.over; step++) {
       const g = session.game, roll = r();
@@ -186,7 +240,7 @@ try {
 }
 if (failures === beforeSave) console.log(`  ✓ games were continued from their save ${resumes} times, always identical`);
 
-// ---------- 4. Text check ----------
+// ---------- 5. Text check ----------
 console.log('Text check');
 const before = failures;
 const en = ctx.SC_LANG.en, ja = ctx.SC_LANG.ja;
