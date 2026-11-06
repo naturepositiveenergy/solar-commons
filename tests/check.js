@@ -13,6 +13,10 @@
 // 4. Save check: a game continued from its save (after a page reload) is identical.
 // 5. Text check: both language files have the same text codes and placeholders,
 //    and every text code used in the code exists.
+// 6. Font check: every character the game uses is in the font files in fonts/
+//    (otherwise run: node tools/make-fonts.js).
+// 7. Offline check: the offline helper (sw.js) lists every file the game loads, every listed
+//    file exists, and all ?v= version numbers are the same.
 
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto');
 const ROOT = path.join(__dirname, '..');
@@ -273,6 +277,50 @@ for (const { id, source } of nbEntries) {
 }
 for (const k of used) if (!(k in en)) fail(`text code "${k}" is used in the code but missing in the language files`);
 if (failures === before) console.log(`  ✓ ${Object.keys(en).length} texts in both languages, ${used.size} codes used in the code all exist`);
+
+// ---------- 6. Font check ----------
+// The game brings its own small font files with only the characters it uses (tools/make-fonts.js).
+// A missing character would appear in a different font, so new text may need new font files.
+console.log('Font check');
+const beforeFonts = failures;
+const { usedCharacters } = require('../tools/make-fonts.js');
+const gameCharacters = usedCharacters();
+const inFonts = new Set(JSON.parse(read('fonts/characters.json')).characters);
+const missingCharacters = gameCharacters.filter(ch => !inFonts.has(ch));
+if (missingCharacters.length) {
+  fail(`${missingCharacters.length} character(s) not in the fonts yet: ${missingCharacters.join(' ')}  (run: node tools/make-fonts.js)`);
+}
+const fontFiles = [...read('fonts/fonts.css').matchAll(/url\("([^"]+)"\)/g)].map(m => m[1]);
+for (const name of fontFiles) {
+  if (!fs.existsSync(path.join(ROOT, 'fonts', name))) fail(`fonts/fonts.css names fonts/${name}, which does not exist`);
+}
+if (failures === beforeFonts) console.log(`  ✓ all ${gameCharacters.length} characters used in the game are in the ${fontFiles.length} font files`);
+
+// ---------- 7. Offline check ----------
+// The offline helper (sw.js) copies the files on its list. A file the game loads but the list
+// forgets would be missing offline. (The font files are read from fonts/fonts.css by the helper.)
+console.log('Offline check');
+const beforeOffline = failures;
+const swList = (read('sw.js').match(/const FILES = \[([\s\S]*?)\];/) || [])[1];
+if (!swList) fail('could not find the list of files (const FILES = [...]) in sw.js');
+const offlineFiles = new Set([...(swList || '').matchAll(/'([^']+)'/g)].map(m => m[1] === './' ? 'index.html' : m[1]));
+for (const f of offlineFiles) if (!fs.existsSync(path.join(ROOT, f))) fail(`sw.js lists ${f}, which does not exist`);
+// Files the page loads: links and scripts in index.html, and the icons in the app description
+const html = read('index.html');
+const pageFiles = [...html.matchAll(/(?:href|src)="([^"#:]+)"/g)].map(m => m[1].split('?')[0]);
+const manifest = JSON.parse(read('manifest.webmanifest'));
+manifest.icons.forEach(icon => pageFiles.push(icon.src));
+for (const f of new Set(pageFiles)) {
+  if (!fs.existsSync(path.join(ROOT, f))) fail(`index.html or the manifest uses ${f}, which does not exist`);
+  else if (!offlineFiles.has(f)) fail(`${f} is used by the game but missing from the list in sw.js (it would be missing offline)`);
+}
+if (!html.includes('js/offline.js')) fail('index.html does not load js/offline.js, so the offline helper never starts');
+// One version number everywhere
+const versions = new Set([...html.matchAll(/\?v=([\w.-]+)"/g), ...read('prototype/simulator.html').matchAll(/\?v=([\w.-]+)"/g)].map(m => m[1]));
+if (versions.size !== 1) fail(`the ?v= version numbers differ: ${[...versions].join(', ')} (use one version everywhere)`);
+if (failures === beforeOffline) {
+  console.log(`  ✓ the offline helper lists all ${new Set(pageFiles).size} files the game loads (version ${[...versions][0]})`);
+}
 
 console.log(failures ? `\n${failures} problem(s) found.` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

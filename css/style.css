@@ -152,6 +152,10 @@ html[lang="ja"] .title { letter-spacing: 0.02em; }
 }
 .start-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .saved-note { margin: 14px 0 0; font-size: 0.9rem; color: var(--muted); }
+/* Install button and offline note (js/offline.js) */
+.start-install { margin-top: 28px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.start-install:not(:has(> :not([hidden]))) { display: none; }
+.start-note { margin: 0; max-width: 26em; font-size: 0.9rem; color: var(--muted); text-wrap: balance; }
 
 /* ----- Map tiles ----- */
 .tile { width: var(--tile); height: var(--tile); border-radius: 3px; }

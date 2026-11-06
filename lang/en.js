@@ -27,6 +27,10 @@ SC_LANG.en = {
   "start.replaceText": "Your saved game will be replaced.",
   "start.replaceOk": "Start new game",
   "start.resumeFailed": "The saved game could not be loaded. Please start a new game.",
+  "start.install": "Install the game",
+  "start.installHint": "To install the game on iPhone or iPad: tap Share, then “Add to Home Screen”.",
+  "start.offlineReady": "Ready to play offline on this device.",
+  "start.installed": "Installed. You can now open Solar Commons from your home screen or app list.",
 
   // ----- Game screen -----
   "game.heading": "Game in progress",

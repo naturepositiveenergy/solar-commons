@@ -27,6 +27,10 @@ SC_LANG.ja = {
   "start.replaceText": "保存されているゲームは上書きされます。",
   "start.replaceOk": "新しいゲームを始める",
   "start.resumeFailed": "保存されたゲームを読み込めませんでした。新しいゲームを始めてください。",
+  "start.install": "ゲームをインストール",
+  "start.installHint": "iPhone・iPadでは、共有ボタンから「ホーム画面に追加」を選ぶとインストールできます。",
+  "start.offlineReady": "この端末では、インターネットがなくても遊べます。",
+  "start.installed": "インストールしました。ホーム画面やアプリ一覧から開けます。",
 
   // ----- ゲーム画面 -----
   "game.heading": "ゲーム中",

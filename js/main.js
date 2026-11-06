@@ -117,6 +117,7 @@
   SC.endScreen.init();
   SC.notebook.init();
   SC.notebook.updateButton();
+  SC.offline.init();           // offline copy and install button (js/offline.js)
   updateStartButtons();
   I18n.onChange(() => {        // when the player switches language, redraw texts made in code
     markCurrentLanguage();
