@@ -310,6 +310,62 @@
 .end-scale { margin-top: 16px; }
 .end-buttons { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
 
+/* ----- Policy notebook ----- */
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 0 2px;
+  padding: 0;
+  vertical-align: middle;
+  font: italic 700 0.8rem/1 Georgia, "Times New Roman", serif;
+  border: 1.5px solid var(--info);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--info);
+  cursor: pointer;
+}
+.info-btn:hover { background: color-mix(in srgb, var(--info) 12%, var(--surface)); }
+.nb-badge {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+.topbar-left { gap: 14px; flex-wrap: wrap; }
+.nb-intro { margin: 0 0 6px; color: var(--muted); font-size: 0.9rem; }
+.nb-count { margin: 0 0 10px; font-weight: 700; }
+.nb-list { display: grid; gap: 6px; }
+.nb-entry { border: 1px solid var(--line); border-radius: 10px; padding: 2px 14px; background: var(--surface); }
+.nb-entry[open] { padding-bottom: 12px; }
+.nb-entry summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; font-weight: 700; list-style: none; }
+.nb-entry summary::-webkit-details-marker { display: none; }
+.nb-entry summary::before { content: "▸"; transition: transform 0.15s; }
+.nb-entry[open] summary::before { transform: rotate(90deg); }
+.nb-entry summary:focus-visible { outline: 3px solid var(--pollen); outline-offset: 2px; }
+.nb-name { flex: 1; }
+.nb-entry h4 { margin: 8px 0 2px; font-size: 0.85rem; color: var(--muted); }
+.nb-entry p { margin: 0; font-size: 0.95rem; }
+.nb-source { margin-top: 8px !important; font-size: 0.85rem !important; }
+.nb-source a { color: var(--info); }
+.nb-entry.is-locked { background: var(--paper); }
+.nb-entry.is-locked .nb-name { color: var(--muted); }
+.nb-lock { font-size: 0.8rem; font-weight: 400; color: var(--muted); }
+.nb-unlock { color: var(--muted); padding-bottom: 10px; }
+.tag.is-new { background: var(--accent); color: var(--on-accent); }
+.report-notebook { margin-top: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--accent); }
+.report-notebook p { margin: 0 0 4px; font-weight: 700; }
+.report-notebook ul { margin: 0; padding-left: 1.2em; }
+.nb-end { margin: 14px 0 0; }
+
 /* ----- Turn report ----- */
 .report-list { margin-bottom: 14px; }
 .report-quiet { color: var(--muted); }

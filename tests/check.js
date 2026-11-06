@@ -264,6 +264,13 @@ E.SITE_TYPES.forEach(s => { used.add('site.' + s); used.add('siteInfo.' + s); })
 E.RESIDENTS.forEach(r => { used.add('resident.' + r); used.add('wish.' + r); });
 Object.keys(E.ACTIONS).forEach(a => { used.add('action.' + a); used.add('actionInfo.' + a); });
 E.STATUSES.forEach(s => used.add('status.' + s));
+// Policy notebook: every entry needs its four texts and an official source link (https)
+const nbEntries = [...read('js/notebook.js').matchAll(/\{ id: '(\w+)', source: '([^']*)'/g)].map(m => ({ id: m[1], source: m[2] }));
+if (nbEntries.length !== 11) fail(`expected 11 policy notebook entries in js/notebook.js, found ${nbEntries.length}`);
+for (const { id, source } of nbEntries) {
+  ['title', 'unlock', 'game', 'real'].forEach(part => used.add(`nb.${id}.${part}`));
+  if (!/^https:\/\/\S+$/.test(source)) fail(`policy notebook entry "${id}" has no https source link`);
+}
 for (const k of used) if (!(k in en)) fail(`text code "${k}" is used in the code but missing in the language files`);
 if (failures === before) console.log(`  ✓ ${Object.keys(en).length} texts in both languages, ${used.size} codes used in the code all exist`);
 

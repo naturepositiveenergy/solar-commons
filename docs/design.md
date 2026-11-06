@@ -95,7 +95,7 @@ Each site has a 20% chance of lying in a promotion zone (促進区域). If the p
 
 ## 6. Policy layer
 
-Each real policy appears as a permit card or rule with a short bilingual explanation (1 to 2 sentences) and an entry in an in-game "Policy notebook." Mechanics stay simple; the realism lives in the explanations.
+Each real policy appears as a permit card or rule with a short bilingual explanation (1 to 2 sentences) and an entry in an in-game "Policy notebook." Mechanics stay simple; the realism lives in the explanations. In a game, notebook entries are discovered when the related situation first occurs; from the title screen, all entries can be read. Texts and sources: docs/policy-notebook.md.
 
 | Policy | Game mechanic |
 |---|---|

@@ -54,7 +54,16 @@
       statusHtml(g) + alertsHtml(g) + sitesHtml(g) + projectsHtml(g) + logHtml(g) + turnBarHtml(g),
       fallbackFocus);
     fallbackFocus = null;
+    SC.notebook.updateButton();   // the "new" count may have changed
   }
+
+  // ⓘ button that opens the policy notebook at one entry
+  const info = id => SC.notebook.infoButton(id);
+  // Notebook entries for site types and log messages
+  const SITE_ENTRY = { farmland: 'farmland', agri: 'agri', forest: 'forest' };
+  const LOG_ENTRY = { 'log.gridDelay': 'grid', 'log.gridDelayNone': 'grid', 'log.curtailment': 'grid',
+    'log.ordinance': 'ordinance', 'log.rareFound': 'natureSite' };
+  const logLine = m => `<li class="${moodOf(m.key)}">${esc(t(m))}${LOG_ENTRY[m.key] ? ' ' + info(LOG_ENTRY[m.key]) : ''}</li>`;
 
   function statusHtml(g) {
     const P = g.P;
@@ -63,7 +72,7 @@
     const chip = (label, value, mood) =>
       `<div class="stat-chip${mood ? ' is-' + mood : ''}"><dt>${esc(label)}</dt><dd>${value}</dd></div>`;
     const flags = [
-      g.ordinance ? `<span class="flag is-bad">${esc(t('status.ordinance'))}</span>` : '',
+      g.ordinance ? `<span class="flag is-bad">${esc(t('status.ordinance'))}</span>${info('ordinance')}` : '',
       g.strikes ? `<span class="flag is-warn">${esc(t('status.warnings', { count: g.strikes }))}</span>` : '',
       `<span class="flag">${esc(t('stat.reputation', { rep: g.R }))}</span>`
     ].join('');
@@ -100,9 +109,9 @@
       <article class="card site-card">
         <div class="card-head">
           <h3>${esc(t('site.' + s.type))}</h3>
-          ${s.promo ? `<span class="tag is-promo">${esc(t('sites.promo'))}</span>` : ''}
+          ${s.promo ? `<span class="tag is-promo">${esc(t('sites.promo'))}</span>${info('promo')}` : ''}
         </div>
-        <p class="card-text">${esc(t('siteInfo.' + s.type))}</p>
+        <p class="card-text">${esc(t('siteInfo.' + s.type))}${SITE_ENTRY[s.type] ? ' ' + info(SITE_ENTRY[s.type]) : ''}</p>
         <ul class="facts">
           <li>${esc(t('sites.permit', { turns: E.sitePermitTurns(g, s.type) }))}</li>
           <li>${esc(t('sites.risk', { level: t(siteRiskLevel(P['risk_' + s.type])) }))}</li>
@@ -135,13 +144,14 @@
       </div>`;
     const facts = `
       <p class="facts-line">${esc(t('project.facts', { cap: p.calc.cap, cost: p.calc.cost, b: p.calc.bTarget }))}
-        ${p.promo ? `<span class="tag is-promo">${esc(t('sites.promo'))}</span>` : ''}</p>`;
+        ${p.promo ? `<span class="tag is-promo">${esc(t('sites.promo'))}</span>${info('promo')}` : ''}</p>`;
     // the facts and status on the left, a small map of the park on the right
     const top = inner => `<div class="project-top"><div>${facts}${inner}</div>${SC.mapEditor.miniMapHtml(p.design)}</div>`;
     if (ENDED.includes(p.status)) {
       return `<article class="card project-card is-ended">${head}${top(`<p class="state-line">${esc(t(ENDED_TEXT[p.status]))}</p>`)}</article>`;
     }
-    const lines = stateLines(g, p).map(([text, mood]) => `<p class="state-line${mood ? ' is-' + mood : ''}">${esc(text)}</p>`).join('');
+    const lines = stateLines(g, p).map(([text, mood, entry]) =>
+      `<p class="state-line${mood ? ' is-' + mood : ''}">${esc(text)}${entry ? ' ' + info(entry) : ''}</p>`).join('');
     const support = SUPPORT_MATTERS.includes(p.status);
     const canTalk = !g.over && ['design', 'permitting', 'approved'].includes(p.status);
     return `
@@ -160,7 +170,7 @@
     switch (p.status) {
       case 'design': {
         const now = E.submitPreview(g, p);
-        const lines = [[t('project.designInfo')], [t('project.submitPreview', { turns: now.turns, cost: now.cost })]];
+        const lines = [[t('project.designInfo'), '', 'briefing'], [t('project.submitPreview', { turns: now.turns, cost: now.cost })]];
         if (g.money < now.cost) lines.push([t({ key: 'err.planningCost', vars: { cost: now.cost } }), 'bad']);
         if (E.checkAction(g, p, 'genuine').ok) {
           const first = E.submitPreview(g, p, { genuineFirst: true });
@@ -183,7 +193,7 @@
         return [[t('project.waitingFunds', { need }), g.money < need ? 'warn' : '']];
       }
       case 'building': return [[t('project.building', { turns: p.buildLeft })]];
-      case 'operating': return [[t('project.operating', { b: p.B, target: p.calc.bTarget, income: E.expectedIncome(g, p) })]];
+      case 'operating': return [[t('project.operating', { b: p.B, target: p.calc.bTarget, income: E.expectedIncome(g, p) }), '', 'fitfip']];
     }
     return [];
   }
@@ -259,7 +269,7 @@
     const body = turns.size
       ? [...turns.keys()].reverse().map(n => `
           <h3 class="log-turn">${esc(t('logPanel.turn', { turn: n }))}</h3>
-          <ul class="log-list">${readingOrder(turns.get(n)).map(m => `<li class="${moodOf(m.key)}">${esc(t(m))}</li>`).join('')}</ul>`).join('')
+          <ul class="log-list">${readingOrder(turns.get(n)).map(logLine).join('')}</ul>`).join('')
       : `<p class="empty">${esc(t('logPanel.empty'))}</p>`;
     return `
       <details class="game-section log-panel" data-key="log">
@@ -282,10 +292,11 @@
   // ===== Turn report =====
   function endTurn() {
     const g = game();
-    const before = { turn: g.turn, money: g.money, T: g.T, logLength: g.log.length };
+    const before = { turn: g.turn, money: g.money, T: g.T, logLength: g.log.length, notebook: SC.notebook.discovered(g) };
     SC.session.act('endTurn');
     render();
     const entries = readingOrder(g.log.slice(before.logLength).map(l => l.msg));
+    const newEntries = SC.notebook.discovered(g).filter(id => !before.notebook.includes(id));
     const change = (label, from, to, decimals) => {
       // difference of the rounded numbers, so that it matches what is shown
       const diff = Number(fmt(to, decimals)) - Number(fmt(from, decimals));
@@ -295,9 +306,11 @@
     $('reportTitle').textContent = t('report.title', { turn: before.turn });
     $('reportBody').innerHTML =
       (entries.length
-        ? `<ul class="report-list">${entries.map(m => `<li class="${moodOf(m.key)}">${esc(t(m))}</li>`).join('')}</ul>`
+        ? `<ul class="report-list">${entries.map(logLine).join('')}</ul>`
         : `<p class="report-quiet">${esc(t('report.quiet'))}</p>`) +
       `<dl class="report-changes">${change(t('stat.money'), before.money, g.money, 1)}${change(t('stat.trust'), before.T, g.T, 0)}</dl>` +
+      (newEntries.length ? `<div class="report-notebook"><p>${esc(t('nb.reportNew'))}</p><ul>${newEntries.map(id =>
+        `<li><button type="button" class="btn-link" data-nb="${id}">${esc(SC.notebook.title(id))}</button></li>`).join('')}</ul></div>` : '') +
       (g.over ? `<p class="report-over">${esc(t('report.gameOver'))}</p>` : '');
     $('reportContinue').textContent = t('common.continue');
     openDialog($('reportDialog'), {

@@ -67,6 +67,8 @@
         ${stat(t('stat.trust'), fmt(g.T, 0))}
         ${stat(t('end.reputation'), fmt(g.R, 0))}
       </dl>
+      <p class="nb-end">${esc(t('nb.endCount', { n: SC.notebook.discovered(g).length, total: SC.notebook.count }))}
+        <button type="button" class="btn-link" data-nb="">${esc(t('nb.open'))}</button></p>
       <section class="game-section" aria-labelledby="parksTitle">
         <h2 id="parksTitle">${esc(t('end.parks'))}</h2>
         ${parks ? `<div class="project-grid">${parks}</div>` : `<p class="empty">${esc(t('end.noParks'))}</p>`}

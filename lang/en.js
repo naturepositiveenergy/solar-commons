@@ -14,6 +14,7 @@ SC_LANG.en = {
   // ----- Common buttons -----
   "common.continue": "Continue",
   "common.cancel": "Cancel",
+  "common.close": "Close",
 
   // ----- Start screen -----
   "app.pageTitle": "Solar Commons",       // shown in the browser tab
@@ -286,6 +287,78 @@ SC_LANG.en = {
   "cancel.objections": "too many objections",
   "cancel.acceptance": "acceptance fell to {A:0}",
   "cancel.consent": "the 自治会 did not agree",
+
+  // ----- Policy notebook (texts reviewed in docs/policy-notebook.md) -----
+  "nb.button": "Policy notebook",
+  "nb.buttonLabel": "Policy notebook, {n} new",
+  "nb.title": "Policy notebook",
+  "nb.intro": "The real Japanese policies behind the game. Rules change often: each entry links to official information (in Japanese). Checked in November 2026.",
+  "nb.count": "Discovered in this game: {n} of {total}",
+  "nb.locked": "not discovered yet",
+  "nb.unlockHint": "Unlocks when {how}.",
+  "nb.new": "new",
+  "nb.inGame": "In the game",
+  "nb.inReality": "In reality",
+  "nb.source": "Official information (in Japanese)",
+  "nb.about": "About: {title}",
+  "nb.reportNew": "New in your policy notebook:",
+  "nb.endCount": "You discovered {n} of {total} entries of the policy notebook.",
+  "nb.open": "Open the policy notebook",
+
+  "nb.briefing.title": "Resident briefing (説明会)",
+  "nb.briefing.unlock": "you start your first project",
+  "nb.briefing.game": "Every project holds a formal 説明会 when it is submitted. A genuine dialogue before submission wins support and shortens the permit time.",
+  "nb.briefing.real": "Since April 2024, solar projects must inform nearby residents before applying for FIT/FIP certification. Projects of 50 kW and above, and projects in areas with a high risk to their surroundings, must hold a briefing; smaller projects elsewhere can use other forms of prior notice.",
+
+  "nb.farmland.title": "Farmland conversion (農地転用)",
+  "nb.farmland.unlock": "you start a project on abandoned farmland",
+  "nb.farmland.game": "Building on abandoned farmland needs a farmland conversion permit: +1 permit turn.",
+  "nb.farmland.real": "Using farmland for anything other than farming needs permission under the Farmland Act (農地法), usually from the prefectural governor. The best farmland is in principle protected, and abandoned farmland still counts as farmland unless the agricultural committee judges that it can no longer be farmed.",
+
+  "nb.agri.title": "Agrivoltaics (営農型太陽光発電)",
+  "nb.agri.unlock": "you start a project on an agrivoltaics site",
+  "nb.agri.game": "Agrivoltaics needs a temporary conversion permit for the posts that hold the panels. The farmer partner supports the project. (The yearly farming check is not in the game yet.)",
+  "nb.agri.real": "Panels stand on posts above fields that are still farmed; only the land under the posts is converted, for a limited time. The harvest must be reported every year, and a permit can be refused at renewal if yields fall by 20% or more compared with the local average; these rules were tightened in 2024 and written into the Farmland Act in April 2025.",
+
+  "nb.forest.title": "Forest development permit (林地開発許可)",
+  "nb.forest.unlock": "you start a project on a forested slope",
+  "nb.forest.game": "Building on a forested slope needs a forest development permit: +2 permit turns, and drainage adds 20% to the building cost.",
+  "nb.forest.real": "Clearing forest for development needs a permit from the prefecture under the Forest Act (森林法), with measures against landslides and floods such as drainage and retention ponds. For solar, a permit has been needed from 0.5 ha (instead of 1 ha) since April 2023.",
+
+  "nb.ordinance.title": "Local solar ordinances (条例)",
+  "nb.ordinance.unlock": "your municipality passes a solar ordinance",
+  "nb.ordinance.game": "After repeated problems in the region, the municipality passes an ordinance: longer permits, the 自治会 must agree, and no projects on forest sites. It applies to all later projects, including good ones.",
+  "nb.ordinance.real": "Many prefectures and municipalities have passed their own rules for solar parks, often after landslides or conflicts with residents. Yamanashi Prefecture's ordinance of 2021, for example, in principle bans new solar parks in forests and landslide-risk areas, and requires a permit, an environmental assessment and a residents' briefing for exceptions.",
+
+  "nb.promo.title": "Promotion zones (促進区域)",
+  "nb.promo.unlock": "you start a project in a promotion zone",
+  "nb.promo.game": "A site in a promotion zone gives a bonus if, at submission, the biodiversity target is 40 or more and there is a citizen fund or benefit agreement: 1 permit turn faster, more acceptance and fewer objections.",
+  "nb.promo.real": "Under the Global Warming Countermeasures Act (in force since April 2022), municipalities can set promotion zones for renewables together with local stakeholders, leaving out areas such as nature reserves. Projects certified there must contribute to the local community and environment, and can handle several permits in one procedure.",
+
+  "nb.fitfip.title": "FIT and FIP",
+  "nb.fitfip.unlock": "your first park starts operating",
+  "nb.fitfip.game": "Parks below capacity 30 sell at a fixed price (FIT), so income is steady. From capacity 30, the price follows the market (FIP), so income varies from turn to turn.",
+  "nb.fitfip.real": "Under FIT, power is bought at a fixed price for many years; under FIP (since April 2022), generators sell on the market and receive a premium on top. From fiscal year 2027, new ground-mounted business solar will no longer get FIT or FIP support; continued support for some cases, such as certified projects in promotion zones, is under discussion.",
+
+  "nb.grid.title": "Grid connection and curtailment (出力制御)",
+  "nb.grid.unlock": "the grid causes a delay or curtailment",
+  "nb.grid.game": "Grid connection delays add turns to projects in permitting or construction. Curtailment cuts revenue for one turn.",
+  "nb.grid.real": "When more power is produced than used, and it cannot be stored or sent to other regions, grid operators reduce the output of solar and wind in a fixed order of priority (出力制御); this began in Kyushu in 2018 and now happens in many regions. Where the grid is full, new projects can often connect only on a \"non-firm\" basis, accepting more curtailment.",
+
+  "nb.decommission.title": "Decommissioning reserve (廃棄等費用積立)",
+  "nb.decommission.unlock": "your first park starts operating",
+  "nb.decommission.game": "5% of each park's revenue is set aside for dismantling it at the end of its life.",
+  "nb.decommission.real": "Since July 2022, solar projects of 10 kW and above under FIT/FIP must save for dismantling and disposal: in principle, the money is deducted from their payments during the last 10 years of the support period and held by an external body. The operator remains responsible for proper disposal.",
+
+  "nb.fund.title": "Citizen funds (市民出資)",
+  "nb.fund.unlock": "you set up a citizen fund",
+  "nb.fund.game": "A citizen fund wins support from everyone: local people pay 20% of the cost and receive 20% of the revenue.",
+  "nb.fund.real": "Many community energy projects in Japan are financed by residents, often through investment schemes such as silent partnerships (匿名組合); in Ikoma (Nara), for example, a citizens' solar plant was financed entirely by local people. Local ownership keeps money in the region and can make projects easier to accept.",
+
+  "nb.natureSite.title": "Nature-coexistence sites (自然共生サイト)",
+  "nb.natureSite.unlock": "one of your parks reaches biodiversity {b}",
+  "nb.natureSite.game": "Your park has reached a high level of biodiversity. (The game has no certification step.)",
+  "nb.natureSite.real": "Since 2023, Japan certifies places where nature is conserved through private or local efforts as 自然共生サイト; since April 2025 this is based on a law (地域生物多様性増進法) that also covers restoring nature on neglected land. Certified places contribute to the goal of conserving 30% of land and sea by 2030 (30by30).",
 
   // ----- End screen -----
   "end.title": "Final result",

@@ -54,6 +54,7 @@
     document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'screen-' + name; });
     $('toTitleBtn').hidden = name !== 'game';
     if (name === 'start') updateStartButtons();
+    SC.notebook.updateButton();
     window.scrollTo(0, 0);
     // Move keyboard and screen reader focus to the new screen's heading
     $('screen-' + name).querySelector('h1').focus();
@@ -114,9 +115,12 @@
   SC.gameScreen.init();
   SC.designPanel.init();
   SC.endScreen.init();
+  SC.notebook.init();
+  SC.notebook.updateButton();
   updateStartButtons();
   I18n.onChange(() => {        // when the player switches language, redraw texts made in code
     markCurrentLanguage();
+    SC.notebook.updateButton();
     if (current === 'game') SC.gameScreen.render();
     if (current === 'end') SC.endScreen.render();
   });

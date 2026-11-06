@@ -25,6 +25,7 @@ No installation or server is needed.
 | `js/game-screen.js` | The game screen: status bar, sites, projects, End turn, turn report, log |
 | `js/design-panel.js` | The design panel for planning a park |
 | `js/map-editor.js` | The 10 × 10 site map: painting tiles, and the small maps on cards |
+| `js/notebook.js` | The policy notebook: real policies behind the game, with official sources |
 | `js/end-screen.js` | The end screen with the final grade |
 | `js/main.js` | The start screen and switching between screens |
 | `lang/en.js`, `lang/ja.js` | All English and Japanese texts |
@@ -33,6 +34,7 @@ No installation or server is needed.
 | `tests/engine-reference.json` | Fingerprints of 600 games, used by the rules check |
 | `docs/design.md` | Game design document (the rules) |
 | `docs/publishing.md` | How to publish with GitHub Pages |
+| `docs/policy-notebook.md` | Texts and sources of the policy notebook, with review notes |
 | `.nojekyll` | Tells GitHub Pages to publish the files as they are |
 
 ## Automatic checks

@@ -111,7 +111,7 @@
           <input type="checkbox" id="d-cheap"${d.cheap ? ' checked' : ''}>
           <span><strong>${esc(t('design.cheap'))}</strong><small>${esc(t('design.cheapInfo', { pct: P.cheapDiscount * 100 }))}</small></span>
         </label>
-        ${ctx.site === 'forest' ? `<p class="design-note">${esc(t('design.forestDrainage', { pct: P.drainageCost * 100 }))}</p>` : ''}
+        ${ctx.site === 'forest' ? `<p class="design-note">${esc(t('design.forestDrainage', { pct: P.drainageCost * 100 }))} ${SC.notebook.infoButton('forest')}</p>` : ''}
       </fieldset>
       <div class="design-details" id="designDetails" aria-live="polite"></div>`;
   }
@@ -147,8 +147,8 @@
     const running = calc.mgmtCost + (ctx.benefit ? P.benefitCost : 0);
     const lines = [];
     if (calc.cap > 0) {
-      lines.push(`<p>${esc(t('design.income', { income: E.expectedIncome(g, planned), running }))}</p>`);
-      lines.push(`<p class="muted">${esc(t(calc.cap >= P.fipThreshold ? 'design.fip' : 'design.fit', { min: P.fipThreshold }))}</p>`);
+      lines.push(`<p>${esc(t('design.income', { income: E.expectedIncome(g, planned), running }))} ${SC.notebook.infoButton('decommission')}</p>`);
+      lines.push(`<p class="muted">${esc(t(calc.cap >= P.fipThreshold ? 'design.fip' : 'design.fit', { min: P.fipThreshold }))} ${SC.notebook.infoButton('fitfip')}</p>`);
     }
     lines.push(`<p class="muted">${esc(t('design.bTargetInfo'))}</p>`);
     if (cost > g.money) lines.push(`<p class="is-warn">${esc(t('design.moneyShort', { money: g.money }))}</p>`);

@@ -13,8 +13,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
 <!-- ?v=... makes browsers load fresh copies after an update: change it with every update (see docs/publishing.md) -->
-<link rel="stylesheet" href="css/style.css?v=m3">
-<link rel="stylesheet" href="css/game.css?v=m3">
+<link rel="stylesheet" href="css/style.css?v=m4">
+<link rel="stylesheet" href="css/game.css?v=m4">
 </head>
 <body>
 <div class="app">
@@ -22,6 +22,8 @@
     <div class="topbar-left">
       <!-- Only shown during a game -->
       <button type="button" class="btn-link" id="toTitleBtn" data-i18n="game.toTitle" hidden></button>
+      <!-- Policy notebook (js/notebook.js); its text and "new" count are filled in by code -->
+      <button type="button" class="btn-link" id="notebookBtn" data-nb=""></button>
     </div>
     <!-- Language buttons are added by js/main.js, one per language file -->
     <nav class="lang-switch" id="langSwitch" data-i18n-aria-label="lang.switchLabel"></nav>
@@ -78,6 +80,17 @@
   </form>
 </dialog>
 
+<!-- Pop-up: policy notebook (js/notebook.js) -->
+<dialog class="dialog dialog-large" id="notebookDialog" aria-labelledby="notebookTitle">
+  <form method="dialog" class="dialog-frame">
+    <div class="dialog-head"><h2 id="notebookTitle" tabindex="-1"></h2></div>
+    <div class="dialog-scroll" id="notebookBody"></div>
+    <div class="dialog-foot">
+      <div class="dialog-actions"><button type="submit" value="close" class="btn" id="notebookClose"></button></div>
+    </div>
+  </form>
+</dialog>
+
 <!-- Pop-up: yes/no questions -->
 <dialog class="dialog" id="confirmDialog" aria-labelledby="confirmTitle">
   <form method="dialog">
@@ -95,16 +108,17 @@
 
 <!-- Order matters: language system, texts (Japanese first = first in the switch), rules,
      helpers, then the screens, and main.js last -->
-<script src="js/i18n.js?v=m3"></script>
-<script src="lang/ja.js?v=m3"></script>
-<script src="lang/en.js?v=m3"></script>
-<script src="js/engine.js?v=m3"></script>
-<script src="js/ui.js?v=m3"></script>
-<script src="js/save.js?v=m3"></script>
-<script src="js/game-screen.js?v=m3"></script>
-<script src="js/map-editor.js?v=m3"></script>
-<script src="js/design-panel.js?v=m3"></script>
-<script src="js/end-screen.js?v=m3"></script>
-<script src="js/main.js?v=m3"></script>
+<script src="js/i18n.js?v=m4"></script>
+<script src="lang/ja.js?v=m4"></script>
+<script src="lang/en.js?v=m4"></script>
+<script src="js/engine.js?v=m4"></script>
+<script src="js/ui.js?v=m4"></script>
+<script src="js/save.js?v=m4"></script>
+<script src="js/game-screen.js?v=m4"></script>
+<script src="js/map-editor.js?v=m4"></script>
+<script src="js/design-panel.js?v=m4"></script>
+<script src="js/end-screen.js?v=m4"></script>
+<script src="js/notebook.js?v=m4"></script>
+<script src="js/main.js?v=m4"></script>
 </body>
 </html>
