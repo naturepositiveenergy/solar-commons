@@ -7,6 +7,9 @@
 //
 // The save lives in this browser only (localStorage). If the browser blocks storage,
 // the game still works, it just cannot be continued after a reload.
+//
+// The starting number is the game's scenario code, a number from 1000 to 9999: everyone who
+// plays the same code gets the same sites and events (design document section 2).
 
 (function (root) {
   'use strict';
@@ -39,19 +42,37 @@
       root.localStorage.setItem(STORAGE_KEY, JSON.stringify({ format: FORMAT, rules: E.RULES_VERSION, ...record }));
     } catch (e) { /* storage blocked or full: the game goes on without saving */ }
   }
+  function readStored() {
+    try { return JSON.parse(root.localStorage.getItem(STORAGE_KEY)); } catch (e) { return null; }
+  }
   function readSaved() {
-    try {
-      const s = JSON.parse(root.localStorage.getItem(STORAGE_KEY));
-      return s && s.format === FORMAT && s.rules === E.RULES_VERSION && Array.isArray(s.actions) ? s : null;
-    } catch (e) { return null; }
+    const s = readStored();
+    return s && s.format === FORMAT && s.rules === E.RULES_VERSION && Array.isArray(s.actions) ? s : null;
+  }
+  // A game saved by an earlier version of the game, with other rules: it cannot be continued.
+  function hasOutdated() {
+    const s = readStored();
+    return !!s && !readSaved();
   }
   function clearSaved() {
     try { root.localStorage.removeItem(STORAGE_KEY); } catch (e) { /* nothing to do */ }
   }
 
+  // ----- Scenario codes -----
+  const CODE_MIN = 1000, CODE_MAX = 9999;
+  // The code in a text (for example what a player typed), or null if it is not a valid code
+  function readCode(text) {
+    const s = String(text == null ? '' : text).trim().replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
+    if (!/^\d{4}$/.test(s)) return null;
+    const n = Number(s);
+    return n >= CODE_MIN && n <= CODE_MAX ? n : null;
+  }
+  const randomCode = () => CODE_MIN + Math.floor(Math.random() * (CODE_MAX - CODE_MIN + 1));
+
   // ----- Session -----
-  function start() {
-    const seed = Math.floor(Math.random() * 1e9);
+  // Starts a new game with the given scenario code, or a random one.
+  function start(code) {
+    const seed = readCode(code) || randomCode();
     const params = E.defaultParams();
     game = E.newGame({ ...params }, seed);
     record = { seed, params, actions: [] };
@@ -96,8 +117,9 @@
   }
 
   SC.session = {
-    start, act, resume, end,
+    start, act, resume, end, readCode, hasOutdated,
     hasSaved: () => !!readSaved(),
-    get game() { return game; }
+    get game() { return game; },
+    get code() { return record ? record.seed : null; }
   };
 })(globalThis);

@@ -11,7 +11,7 @@
   --line: #D3DCD3;       /* borders */
   --accent: #3F7F33;     /* main button */
   --on-accent: #FFFFFF;  /* text on the main button */
-  --pollen: #C9951A;     /* keyboard focus ring */
+  --pollen: #A97A12;     /* keyboard focus ring (contrast at least 3 : 1, see tests/check.js) */
 
   /* Meaning colours: good news, bad news, caution, information */
   --good: #2E6B24;
@@ -63,7 +63,7 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font);
-  font-size: 16px;
+  font-size: 1rem;              /* follows the reader's browser text size (16 px by default) */
   line-height: 1.6;
 }
 [hidden] { display: none !important; }
@@ -91,8 +91,10 @@ body {
     max(16px, env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-left));
 }
-.topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.topbar-left { min-height: 40px; display: flex; align-items: center; }
+/* On narrow screens, the links stay together on one line and the language switch moves below them */
+.topbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px; }
+.topbar-left { min-height: 40px; display: flex; align-items: center; flex: 1 1 max-content; }
+.topbar .lang-switch { margin-left: auto; }
 main { flex: 1; display: flex; justify-content: center; }
 .screen { width: 100%; }
 .screen h1:focus { outline: none; }
@@ -152,6 +154,26 @@ html[lang="ja"] .title { letter-spacing: 0.02em; }
 }
 .start-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .saved-note { margin: 14px 0 0; font-size: 0.9rem; color: var(--muted); }
+#outdatedNote { max-width: 30em; margin-inline: auto; text-wrap: balance; }
+.start-code { margin: 18px 0 0; }
+.start-code .btn-link { min-height: 44px; }
+
+/* Pop-up for scenario codes */
+.code-field { display: flex; flex-direction: column; gap: 6px; font-weight: 700; }
+.code-field input {
+  width: 7em;
+  font: inherit;
+  font-size: 1.5rem;
+  letter-spacing: 0.15em;
+  text-align: center;
+  padding: 8px 10px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 2px solid var(--muted);
+  border-radius: 8px;
+}
+.code-field input:focus-visible { outline: 3px solid var(--pollen); outline-offset: 2px; border-color: var(--ink); }
+
 /* Install button and offline note (js/offline.js) */
 .start-install { margin-top: 28px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .start-install:not(:has(> :not([hidden]))) { display: none; }
@@ -161,10 +183,17 @@ html[lang="ja"] .title { letter-spacing: 0.02em; }
 .tile { width: var(--tile); height: var(--tile); border-radius: 3px; }
 .tile-dense { background: var(--tile-panel); }
 .tile-wide { background: linear-gradient(to bottom, var(--tile-panel) 0 55%, var(--tile-meadow) 55% 100%); }
-.tile-meadow { background: var(--tile-meadow); }
+/* Meadow has dots and the corridor has stripes, so the two can be told apart without colour
+   (for colour-blind players, they look almost the same). Hedges and ponds are rounded. */
+.tile-meadow {
+  background: radial-gradient(circle, color-mix(in srgb, var(--tile-meadow) 62%, #000) 20%, transparent 23%) 0 0 / 50% 50%,
+    var(--tile-meadow);
+}
 .tile-hedge { background: var(--tile-hedge); border-radius: 40%; }
 .tile-pond { background: var(--tile-pond); border-radius: 35%; }
-.tile-corridor { background: var(--tile-corridor); }
+.tile-corridor {
+  background: repeating-linear-gradient(135deg, var(--tile-corridor) 0 16%, color-mix(in srgb, var(--tile-corridor) 55%, #000) 16% 28%);
+}
 .tile-empty { background: var(--ground); box-shadow: inset 0 0 0 1px var(--line); }
 
 /* ----- Buttons ----- */
@@ -198,7 +227,8 @@ html[lang="ja"] .title { letter-spacing: 0.02em; }
 }
 .btn:hover:not(:disabled) { filter: brightness(1.08); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
-button:focus-visible, summary:focus-visible, h3[tabindex]:focus-visible { outline: 3px solid var(--pollen); outline-offset: 2px; }
+button:focus-visible, summary:focus-visible, h3[tabindex]:focus-visible,
+a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid var(--pollen); outline-offset: 2px; }
 
 /* ----- Pop-up windows (dialogs) ----- */
 .dialog {

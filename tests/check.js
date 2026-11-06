@@ -17,6 +17,12 @@
 //    (otherwise run: node tools/make-fonts.js).
 // 7. Offline check: the offline helper (sw.js) lists every file the game loads, every listed
 //    file exists, and all ?v= version numbers are the same.
+// 8. Scenario check: two test players who decide differently get the same sites and the same
+//    events in every turn when they play the same scenario code, and the codes recommended in
+//    docs/workshop-guide.md still play as the guide describes.
+// 9. Contrast check: text colours are easy enough to read on their backgrounds (at least 4.5 : 1),
+//    and the keyboard focus ring and field borders stand out enough (at least 3 : 1), in light and
+//    dark mode (WCAG 2.2, level AA).
 
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto');
 const ROOT = path.join(__dirname, '..');
@@ -237,8 +243,20 @@ try {
   const saved = JSON.parse(storage['sc-save']);
   storage['sc-save'] = JSON.stringify({ ...saved, rules: 'other' });
   if (session.resume()) fail('a save made with other rules was continued');
+  if (!session.hasOutdated()) fail('a save made with other rules was not reported as outdated');
   session.end(true);
   if (session.hasSaved()) fail('the save was not deleted');
+  // Scenario codes: four digits from 1000 to 9999 (full-width digits are accepted too)
+  const codes = { '2417': 2417, ' 1000 ': 1000, '9999': 9999, '２４１７': 2417, '999': null, '0999': null, '12345': null, 'abcd': null, '': null };
+  for (const [text, want] of Object.entries(codes)) {
+    if (session.readCode(text) !== want) fail(`scenario code "${text}" read as ${session.readCode(text)}, expected ${want}`);
+  }
+  session.start('2417');
+  if (session.code !== 2417 || session.game.seed !== 2417) fail('a game started with code 2417 has another code');
+  session.end(true);
+  session.start();
+  if (!(session.code >= 1000 && session.code <= 9999)) fail(`a random game got the code ${session.code}`);
+  session.end(true);
 } catch (e) {
   fail('the save check stopped with an error: ' + e.message);
 }
@@ -275,6 +293,12 @@ for (const { id, source } of nbEntries) {
   ['title', 'unlock', 'game', 'real'].forEach(part => used.add(`nb.${id}.${part}`));
   if (!/^https:\/\/\S+$/.test(source)) fail(`policy notebook entry "${id}" has no https source link`);
 }
+// How to play: every section needs a title and a text; the tile legend uses the tile names
+const helpCode = read('js/help.js');
+const listIn = name => [...((helpCode.match(new RegExp(`const ${name} = \\[([^\\]]*)\\]`)) || [])[1] || '').matchAll(/'(\w+)'/g)].map(m => m[1]);
+listIn('SECTIONS').forEach(id => { used.add(`help.${id}.title`); used.add(`help.${id}.text`); });
+listIn('TILES').forEach(k => used.add('tile.' + k));
+if (listIn('SECTIONS').length !== 6) fail(`expected 6 sections in "How to play" (js/help.js), found ${listIn('SECTIONS').length}`);
 for (const k of used) if (!(k in en)) fail(`text code "${k}" is used in the code but missing in the language files`);
 if (failures === before) console.log(`  ✓ ${Object.keys(en).length} texts in both languages, ${used.size} codes used in the code all exist`);
 
@@ -321,6 +345,116 @@ if (versions.size !== 1) fail(`the ?v= version numbers differ: ${[...versions].j
 if (failures === beforeOffline) {
   console.log(`  ✓ the offline helper lists all ${new Set(pageFiles).size} files the game loads (version ${[...versions][0]})`);
 }
+
+// ---------- 8. Scenario check ----------
+// Two test players play the same scenario code with different decisions. Turn by turn, they must
+// be offered the same sites (as long as both have the same 条例 status, which bans forest sites)
+// and get the same event. Which project a grid delay hits may differ; its length may not.
+console.log('Scenario check');
+const beforeScenario = failures;
+const EVENT_KIND = {
+  'log.typhoon': 'typhoon', 'log.heavyRain': 'rain', 'log.gridDelay': 'grid', 'log.gridDelayNone': 'grid',
+  'log.curtailment': 'curtailment', 'log.policyChange': 'policy', 'log.rival': 'rival', 'log.media': 'media',
+  'log.rareFound': 'rare', 'log.rareNone': 'rare'
+};
+function playScenario(code, r) {
+  const g = E.newGame(E.defaultParams(), code);
+  const n = k => Math.floor(r() * k);
+  const turns = [];
+  while (!g.over) {
+    const t = g.turn;
+    turns[t] = { sites: JSON.stringify(g.sites), ordinance: g.ordinance };
+    if (g.sites.length && r() < 0.6) {
+      E.startProject(g, n(g.sites.length), { map: randomMap(r), mgmt: 'none', cheap: r() < 0.5 });
+    }
+    for (const p of g.projects) {
+      if (p.status === 'design' && r() < 0.6) E.submit(g, p);
+      else if (p.status === 'operating' && r() < 0.05) E.sell(g, p);
+    }
+    E.endTurn(g);
+    const ev = g.log.filter(l => l.turn === t && EVENT_KIND[l.msg.key]).map(l => {
+      const v = l.msg.vars || {};
+      return EVENT_KIND[l.msg.key] + (v.factor ? ' ' + v.factor : '') + (l.msg.key === 'log.gridDelay' ? ' ' + v.turns : '');
+    });
+    turns[t].event = ev.join(',') || 'none';
+  }
+  return turns;
+}
+let scenarioTurns = 0, ordinanceDiffers = 0;
+for (let i = 0; i < 200 && failures === beforeScenario; i++) {
+  const code = 1000 + i * 37;
+  const a = playScenario(code, E.rng(code + 11)), b = playScenario(code, E.rng(code + 12));
+  for (let t = 1; t < Math.min(a.length, b.length); t++) {
+    scenarioTurns++;
+    const ga = a[t].event.replace(/^grid \d$/, 'grid'), gb = b[t].event.replace(/^grid \d$/, 'grid');
+    const lengthA = (a[t].event.match(/^grid (\d)$/) || [])[1], lengthB = (b[t].event.match(/^grid (\d)$/) || [])[1];
+    if (ga !== gb || (lengthA && lengthB && lengthA !== lengthB)) {
+      fail(`code ${code}, turn ${t}: the players got different events (${a[t].event} / ${b[t].event})`); break;
+    }
+    if (a[t].ordinance !== b[t].ordinance) { ordinanceDiffers++; continue; }
+    if (a[t].sites !== b[t].sites) { fail(`code ${code}, turn ${t}: the players were offered different sites`); break; }
+  }
+}
+// The scenario codes recommended in docs/workshop-guide.md must still play as the guide describes
+const GUIDE_CODES = {
+  1052: ['reservoir*, forest, brownfield', '5 policy, 7 grid, 9 grid, 11 rain, 14 rival, 18 typhoon'],
+  7870: ['agri*, reservoir, brownfield', '2 curtailment, 10 rival, 11 typhoon, 14 policy, 17 grid, 19 rival'],
+  1016: ['brownfield, agri*, farmland', '3 curtailment, 7 grid']
+};
+for (const [code, [sites, events]] of Object.entries(GUIDE_CODES)) {
+  const g = E.newGame(E.defaultParams(), Number(code));
+  const first = g.sites.map(s => s.type + (s.promo ? '*' : '')).join(', ');
+  const seen = [];
+  while (!g.over) {
+    const t = g.turn;
+    E.endTurn(g);
+    g.log.filter(l => l.turn === t && EVENT_KIND[l.msg.key] && EVENT_KIND[l.msg.key] !== 'rare').forEach(l => seen.push(`${t} ${EVENT_KIND[l.msg.key]}`));
+  }
+  if (first !== sites || seen.join(', ') !== events) {
+    fail(`scenario ${code} no longer plays as described in docs/workshop-guide.md (now: ${first} | ${seen.join(', ')}): update the guide`);
+  }
+}
+if (failures === beforeScenario) {
+  console.log(`  ✓ 200 scenario codes: same sites and events for both players in all ${scenarioTurns} turns` +
+    ` (sites not compared in ${ordinanceDiffers} turns where only one player had a 条例)`);
+  console.log(`  ✓ the ${Object.keys(GUIDE_CODES).length} scenario codes in docs/workshop-guide.md play as the guide describes`);
+}
+
+// ---------- 9. Contrast check ----------
+// Reads the colour tokens (--ink, --paper, ...) of light and dark mode from css/style.css and
+// computes the contrast ratio of each pair that is used together on screen.
+console.log('Contrast check');
+const beforeContrast = failures;
+const css = read('css/style.css');
+const tokensIn = block => Object.fromEntries([...block.matchAll(/--([\w-]+):\s*(#[0-9A-Fa-f]{6})/g)].map(m => [m[1], m[2]]));
+const light = tokensIn((css.match(/:root \{([\s\S]*?)\}/) || [])[1] || '');
+const dark = { ...light, ...tokensIn((css.match(/:root\[data-theme="dark"\] \{([\s\S]*?)\}/) || [])[1] || '') };
+const luminance = hex => {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const ratio = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+// [foreground, background, minimum, what it is]
+const PAIRS = [
+  ...['ink', 'muted', 'good', 'bad', 'warn', 'info', 'accent'].flatMap(fg =>
+    ['paper', 'surface'].map(bg => [fg, bg, 4.5, 'text'])),
+  ['on-accent', 'accent', 4.5, 'text on the main buttons'],
+  ['paper', 'ink', 4.5, 'text on dark highlights (language switch, messages)'],
+  ['pollen', 'paper', 3, 'keyboard focus ring'],
+  ['pollen', 'surface', 3, 'keyboard focus ring'],
+  ['muted', 'surface', 3, 'border of input fields']
+];
+let contrastPairs = 0;
+for (const [mode, tokens] of [['light', light], ['dark', dark]]) {
+  for (const [fg, bg, min, what] of PAIRS) {
+    if (!tokens[fg] || !tokens[bg]) { fail(`${mode} mode: colour --${fg} or --${bg} not found in css/style.css`); continue; }
+    const r = ratio(tokens[fg], tokens[bg]);
+    contrastPairs++;
+    if (r < min) fail(`${mode} mode: --${fg} on --${bg} (${what}) has a contrast of ${r.toFixed(2)} : 1, needs ${min} : 1`);
+  }
+}
+if (failures === beforeContrast) console.log(`  ✓ ${contrastPairs} colour pairs in light and dark mode have enough contrast`);
 
 console.log(failures ? `\n${failures} problem(s) found.` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

@@ -51,7 +51,7 @@
     const g = game();
     if (!g) return;
     renderInto($('gameView'),
-      statusHtml(g) + alertsHtml(g) + sitesHtml(g) + projectsHtml(g) + logHtml(g) + turnBarHtml(g),
+      statusHtml(g) + SC.help.hintHtml(g) + alertsHtml(g) + sitesHtml(g) + projectsHtml(g) + logHtml(g) + turnBarHtml(g),
       fallbackFocus);
     fallbackFocus = null;
     SC.notebook.updateButton();   // the "new" count may have changed
@@ -74,7 +74,8 @@
     const flags = [
       g.ordinance ? `<span class="flag is-bad">${esc(t('status.ordinance'))}</span>${info('ordinance')}` : '',
       g.strikes ? `<span class="flag is-warn">${esc(t('status.warnings', { count: g.strikes }))}</span>` : '',
-      `<span class="flag">${esc(t('stat.reputation', { rep: g.R }))}</span>`
+      `<span class="flag">${esc(t('stat.reputation', { rep: g.R }))}</span>`,
+      `<span class="flag flag-code">${esc(t('game.code', { code: g.seed }))}</span>`
     ].join('');
     return `
       <div class="status-bar">

@@ -60,28 +60,63 @@
     $('screen-' + name).querySelector('h1').focus();
   }
 
+  // A scenario code in the link, for example …/solar-commons/?code=2417 (shared by workshop
+  // facilitators). "New game" then starts that scenario.
+  const linkCode = (() => {
+    try { return SC.session.readCode(new URLSearchParams(root.location.search).get('code')); } catch (e) { return null; }
+  })();
+
   // With a saved game, "Continue game" is the main button and "New game" the second one.
   function updateStartButtons() {
     const saved = SC.session.hasSaved();
     $('continueBtn').hidden = !saved;
     $('savedNote').hidden = !saved;
+    $('outdatedNote').hidden = saved || !SC.session.hasOutdated();
     $('newGameBtn').classList.toggle('btn-primary', !saved);
+    $('newGameBtn').textContent = linkCode ? t('start.newGameCode', { code: linkCode }) : t('start.newGame');
   }
 
-  function newGame() {
-    SC.session.start();
+  // code: a scenario code, or nothing for a random one
+  function newGame(code) {
+    SC.session.start(code);
     SC.gameScreen.render();
     showScreen('game');
   }
 
+  // A saved game is replaced only after asking. Resolves to true if it's fine to start.
+  async function mayReplace(returnTo) {
+    if (!SC.session.hasSaved()) return true;
+    return SC.ui.confirmDialog({
+      title: t('start.replaceTitle'), text: t('start.replaceText'), ok: t('start.replaceOk'), cancel: t('common.cancel')
+    }, returnTo);
+  }
+
   async function onNewGameClick() {
-    if (SC.session.hasSaved()) {
-      const ok = await SC.ui.confirmDialog({
-        title: t('start.replaceTitle'), text: t('start.replaceText'), ok: t('start.replaceOk'), cancel: t('common.cancel')
-      }, $('newGameBtn'));
-      if (!ok) return;
-    }
-    newGame();
+    if (await mayReplace($('newGameBtn'))) newGame(linkCode);
+  }
+
+  // ----- Pop-up: play with a scenario code -----
+  function openCodeDialog() {
+    const dialog = $('codeDialog'), input = $('codeInput');
+    input.value = '';
+    $('codeProblem').textContent = '';
+    SC.ui.openDialog(dialog, {
+      onClose: async value => {
+        if (value !== 'ok') return;
+        if (await mayReplace($('codeBtn'))) newGame(SC.session.readCode(input.value));
+      },
+      returnFocus: () => (dialog.returnValue === 'ok' ? null : $('codeBtn'))
+    });
+    input.focus();
+  }
+  // "Start game" with a code that is not 1000 to 9999: say so and keep the pop-up open.
+  // (This runs before the pop-up's own closing, because it was added first.)
+  function checkCode(e) {
+    if (!e.submitter || e.submitter.value !== 'ok' || SC.session.readCode($('codeInput').value)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    $('codeProblem').textContent = t('code.invalid');
+    $('codeInput').focus();
   }
 
   function continueGame() {
@@ -96,6 +131,7 @@
   }
 
   function showResults() {
+    SC.help.gameFinished();      // after the first finished game, the hints switch off
     SC.endScreen.render();
     showScreen('end');
   }
@@ -118,14 +154,22 @@
   SC.notebook.init();
   SC.notebook.updateButton();
   SC.offline.init();           // offline copy and install button (js/offline.js)
+  SC.help.init();              // how to play and the first-game hints (js/help.js)
   updateStartButtons();
   I18n.onChange(() => {        // when the player switches language, redraw texts made in code
     markCurrentLanguage();
     SC.notebook.updateButton();
+    updateStartButtons();
     if (current === 'game') SC.gameScreen.render();
     if (current === 'end') SC.endScreen.render();
   });
   $('continueBtn').addEventListener('click', continueGame);
   $('newGameBtn').addEventListener('click', onNewGameClick);
+  $('codeBtn').addEventListener('click', openCodeDialog);
+  $('codeForm').addEventListener('submit', checkCode);
+  // Enter in the code field means "Start game" (otherwise the browser would press the first button, Cancel)
+  $('codeInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); $('codeOk').click(); }
+  });
   $('toTitleBtn').addEventListener('click', () => toTitle(false));
 })(globalThis);

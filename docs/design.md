@@ -1,6 +1,8 @@
 # Solar Commons (working title)
 
-**Game Design Document v0.6** | Christian Doedt | Draft for discussion
+**Game Design Document v0.7** | Christian Doedt | Draft for discussion
+
+*Changes in v0.7: scenario codes. Everyone who plays the same code gets the same sites and events (section 2). All rules and numbers are unchanged, and so is the balance (checked with 1,000 simulated games per strategy).*
 
 *Changes in v0.6: placement on the 10 × 10 map matters. Only hedges on the edge of the site shelter and screen the park, and corridors count only when connected (section 5). All numbers are unchanged from v0.4.*
 
@@ -17,6 +19,8 @@ The player is a solar PV developer in a rural Japanese municipality. The goal is
 ## 2. Core loop
 
 One turn = one quarter. A scenario lasts 20 turns (5 years).
+
+**Scenario codes:** every game has a scenario code, a number from 1000 to 9999. Everyone who plays the same code is offered the same sites and gets the same events in the same turns, whatever they decide, so groups in a workshop can compare their games. To make this possible, random numbers are drawn separately for the sites, for the events, and for each game's own luck (objections and FIP market prices). Which project a grid delay hits depends on the player's projects. When a 条例 bans forest sites, a forest offer is replaced by another site type, and the other offers stay the same.
 
 1. **Scout:** choose a site from 3 random options
 2. **Design:** place panels and nature measures on a 10 × 10 tile map

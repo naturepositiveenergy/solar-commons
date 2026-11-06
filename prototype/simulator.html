@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Solar Commons balancing simulator</title>
 <!-- The fonts are stored in the project (fonts/, made by tools/make-fonts.js) -->
-<link rel="stylesheet" href="../fonts/fonts.css?v=m5">
+<link rel="stylesheet" href="../fonts/fonts.css?v=m6">
 <style>
 :root {
   --paper: #F4F7F2; --surface: #FFFFFF; --ink: #1F2A24; --muted: #59665D; --line: #D3DCD3;
@@ -94,7 +94,7 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 <div class="wrap">
 <header>
   <h1>Solar Commons balancing simulator</h1>
-  <p>Tests the numbers of design document v0.6, using the same rules engine as the game (js/engine.js). All values are placeholders for game balance, not real cost, yield or permitting data.</p>
+  <p>Tests the numbers of design document v0.7, using the same rules engine as the game (js/engine.js). All values are placeholders for game balance, not real cost, yield or permitting data.</p>
   <div class="strip" aria-hidden="true"><span style="background:var(--careful)"></span><span style="background:var(--balanced)"></span><span style="background:var(--pollen)"></span><span style="background:var(--fast)"></span></div>
 </header>
 <nav role="tablist">
@@ -127,20 +127,20 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 
 <section id="tab-params" hidden>
   <div class="row" style="margin-bottom:16px">
-    <button class="act" id="resetBtn">Reset to v0.6 values</button>
+    <button class="act" id="resetBtn">Reset to v0.7 values</button>
     <button class="act" id="exportBtn">Export as JSON</button>
     <button class="act" id="importBtn">Import JSON</button>
   </div>
-  <p class="muted" style="margin-top:0">Values differing from v0.6 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
+  <p class="muted" style="margin-top:0">Values differing from v0.7 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
   <div id="jsonBox" hidden><textarea id="jsonText" aria-label="Parameters as JSON"></textarea><p class="msg" id="jsonMsg"></p></div>
   <div id="paramForm"></div>
 </section>
 </div>
 
 <!-- Shared files: language system, English texts and the game rules (same engine as the game) -->
-<script src="../js/i18n.js?v=m5"></script>
-<script src="../lang/en.js?v=m5"></script>
-<script src="../js/engine.js?v=m5"></script>
+<script src="../js/i18n.js?v=m6"></script>
+<script src="../lang/en.js?v=m6"></script>
+<script src="../js/engine.js?v=m6"></script>
 <script>
 // Engine functions used by the simulator (the rules themselves are in js/engine.js)
 const {
@@ -373,13 +373,13 @@ let P = defaultParams();
 try { const s = localStorage.getItem('sc-params'); if (s) Object.assign(P, JSON.parse(s)); } catch (e) {}
 function saveParams() { try { localStorage.setItem('sc-params', JSON.stringify(P)); } catch (e) {} updateNote(); }
 function changedCount() { const d = defaultParams(); return Object.keys(d).filter(k => d[k] !== P[k]).length; }
-function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v0.6` : 'Using v0.6 values'; }
+function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v0.7` : 'Using v0.7 values'; }
 
 function renderParams() {
   const d = defaultParams(), groups = {};
   PARAM_FORM.forEach(x => { (groups[x[0]] = groups[x[0]] || []).push(x); });
   $('paramForm').innerHTML = Object.entries(groups).map(([g, list]) => `<fieldset><legend>${esc(g)}</legend><div class="pgrid">` +
-    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[3]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v0.6: ${d[x[1]]}"></label>`).join('') +
+    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[3]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v0.7: ${d[x[1]]}"></label>`).join('') +
     '</div></fieldset>').join('');
   $('paramForm').querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
     const v = parseFloat(inp.value); if (isNaN(v)) { inp.value = P[inp.dataset.k]; return; }

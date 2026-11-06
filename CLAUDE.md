@@ -3,13 +3,14 @@
 Browser game (PWA) about community-involved, biodiversity-friendly solar parks in Japan.
 Audience: workshop participants, students, stakeholders, general public. Languages: Japanese and English.
 
-- Design document: docs/design.md (current rules, v0.6)
+- Design document: docs/design.md (current rules, v0.7)
 - Game rules engine: js/engine.js (reference implementation of the rules, shared by the game and the simulator)
 - Balancing simulator: prototype/simulator.html
 - Game texts: lang/en.js and lang/ja.js
 - Automatic checks: node tests/check.js (run after changing the engine, the session, the texts or the file list)
 - Offline helper: sw.js lists every file the game loads; raise the ?v= version in index.html and the simulator with every update
 - Fonts and icon: node tools/make-fonts.js after adding text with new kanji (the checks report it); node tools/make-icons.js after changing the icon
+- Workshop guide: docs/workshop-guide.md and docs/workshop-guide.ja.md (its recommended scenario codes are checked by tests/check.js; update the guide if a rule change alters them)
 
 ## Rules
 

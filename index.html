@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <!-- ?v=... makes browsers load fresh copies after an update: change it with every update (see docs/publishing.md) -->
 <!-- The fonts are stored in the project (fonts/, made by tools/make-fonts.js) -->
-<link rel="stylesheet" href="fonts/fonts.css?v=m5">
-<link rel="stylesheet" href="css/style.css?v=m5">
-<link rel="stylesheet" href="css/game.css?v=m5">
+<link rel="stylesheet" href="fonts/fonts.css?v=m6">
+<link rel="stylesheet" href="css/style.css?v=m6">
+<link rel="stylesheet" href="css/game.css?v=m6">
 </head>
 <body>
 <div class="app">
@@ -26,6 +26,8 @@
       <button type="button" class="btn-link" id="toTitleBtn" data-i18n="game.toTitle" hidden></button>
       <!-- Policy notebook (js/notebook.js); its text and "new" count are filled in by code -->
       <button type="button" class="btn-link" id="notebookBtn" data-nb=""></button>
+      <!-- How to play (js/help.js) -->
+      <button type="button" class="btn-link" id="helpBtn" data-help="" data-i18n="help.button"></button>
     </div>
     <!-- Language buttons are added by js/main.js, one per language file -->
     <nav class="lang-switch" id="langSwitch" data-i18n-aria-label="lang.switchLabel"></nav>
@@ -39,9 +41,13 @@
       <p class="subtitle" data-i18n="start.subtitle"></p>
       <div class="start-buttons">
         <button type="button" class="btn btn-primary" id="continueBtn" data-i18n="start.continue" hidden></button>
-        <button type="button" class="btn btn-primary" id="newGameBtn" data-i18n="start.newGame"></button>
+        <!-- Its text is set by js/main.js: "New game", or "Start scenario 2417" for a link with a code -->
+        <button type="button" class="btn btn-primary" id="newGameBtn"></button>
       </div>
       <p class="saved-note" id="savedNote" data-i18n="start.savedNote" hidden></p>
+      <p class="saved-note" id="outdatedNote" data-i18n="start.outdatedSave" hidden></p>
+      <!-- Scenario codes: everyone with the same code gets the same sites and events -->
+      <p class="start-code"><button type="button" class="btn-link" id="codeBtn" data-i18n="start.enterCode"></button></p>
       <!-- Installing and playing offline (js/offline.js): each part is shown only when it applies -->
       <div class="start-install">
         <button type="button" class="btn btn-small btn-quiet" id="installBtn" data-i18n="start.install" hidden></button>
@@ -111,23 +117,53 @@
   </form>
 </dialog>
 
+<!-- Pop-up: how to play (js/help.js) -->
+<dialog class="dialog dialog-large" id="helpDialog" aria-labelledby="helpTitle">
+  <form method="dialog" class="dialog-frame">
+    <div class="dialog-head"><h2 id="helpTitle" tabindex="-1"></h2></div>
+    <div class="dialog-scroll" id="helpBody"></div>
+    <div class="dialog-foot help-foot">
+      <label class="help-hints"><input type="checkbox" id="helpHints"> <span data-i18n="help.showHints"></span></label>
+      <div class="dialog-actions"><button type="submit" value="close" class="btn" data-i18n="common.close"></button></div>
+    </div>
+  </form>
+</dialog>
+
+<!-- Pop-up: start a game with a scenario code (js/main.js) -->
+<dialog class="dialog" id="codeDialog" aria-labelledby="codeTitle">
+  <form method="dialog" id="codeForm" novalidate>
+    <h2 id="codeTitle" data-i18n="code.title"></h2>
+    <p data-i18n="code.text"></p>
+    <label class="code-field">
+      <span data-i18n="code.label"></span>
+      <input id="codeInput" type="text" inputmode="numeric" maxlength="4" autocomplete="off" aria-describedby="codeProblem">
+    </label>
+    <p class="design-problem" id="codeProblem" role="alert"></p>
+    <div class="dialog-actions">
+      <button type="submit" value="cancel" class="btn" data-i18n="common.cancel"></button>
+      <button type="submit" value="ok" class="btn btn-primary" id="codeOk" data-i18n="code.start"></button>
+    </div>
+  </form>
+</dialog>
+
 <!-- Short messages -->
 <p class="toast" id="toast" role="status" aria-live="polite"></p>
 
 <!-- Order matters: language system, texts (Japanese first = first in the switch), rules,
      helpers, then the screens, and main.js last -->
-<script src="js/i18n.js?v=m5"></script>
-<script src="lang/ja.js?v=m5"></script>
-<script src="lang/en.js?v=m5"></script>
-<script src="js/engine.js?v=m5"></script>
-<script src="js/ui.js?v=m5"></script>
-<script src="js/save.js?v=m5"></script>
-<script src="js/game-screen.js?v=m5"></script>
-<script src="js/map-editor.js?v=m5"></script>
-<script src="js/design-panel.js?v=m5"></script>
-<script src="js/end-screen.js?v=m5"></script>
-<script src="js/notebook.js?v=m5"></script>
-<script src="js/offline.js?v=m5"></script>
-<script src="js/main.js?v=m5"></script>
+<script src="js/i18n.js?v=m6"></script>
+<script src="lang/ja.js?v=m6"></script>
+<script src="lang/en.js?v=m6"></script>
+<script src="js/engine.js?v=m6"></script>
+<script src="js/ui.js?v=m6"></script>
+<script src="js/save.js?v=m6"></script>
+<script src="js/game-screen.js?v=m6"></script>
+<script src="js/map-editor.js?v=m6"></script>
+<script src="js/design-panel.js?v=m6"></script>
+<script src="js/end-screen.js?v=m6"></script>
+<script src="js/notebook.js?v=m6"></script>
+<script src="js/offline.js?v=m6"></script>
+<script src="js/help.js?v=m6"></script>
+<script src="js/main.js?v=m6"></script>
 </body>
 </html>

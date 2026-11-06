@@ -1,4 +1,4 @@
-// Solar Commons: game rules engine (design document v0.6)
+// Solar Commons: game rules engine (design document v0.7)
 //
 // This file is the referee of the game. It knows every rule and number,
 // but it never draws anything on screen and contains no texts. Messages for
@@ -11,7 +11,7 @@
 (function (root) {
 'use strict';
 
-// ===== Numbers (design document v0.6) =====
+// ===== Numbers (design document v0.7) =====
 // All rule numbers in one place. The simulator can override them for testing.
 const DEFAULT_PARAMS = {
   // Game
@@ -108,10 +108,10 @@ const STATUSES = ['design', 'permitting', 'approved', 'building', 'operating', '
 const MANAGEMENT = ['none', 'mowing', 'grazing'];
 // Version of the rules. Change it together with docs/design.md: saved games made
 // with other rules are not continued, because they would play differently.
-const RULES_VERSION = 'v0.6';
+const RULES_VERSION = 'v0.7';
 
 // ===== Helpers =====
-// Random numbers from a seed: the same seed always gives the same game.
+// Random numbers from a seed: the same seed always gives the same numbers.
 function rng(seed) {
   let s = seed >>> 0;
   return function () {
@@ -122,6 +122,24 @@ function rng(seed) {
   };
 }
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// Mixes numbers into one new starting number, so that every stream below gets its own numbers.
+function mix(...nums) {
+  let h = 0x811C9DC5;
+  for (const n of nums) {
+    h = Math.imul(h ^ (n >>> 0), 0x01000193);
+    h ^= h >>> 15; h = Math.imul(h, 0x2C1B3C6D); h ^= h >>> 12; h = Math.imul(h, 0x297A2D39); h ^= h >>> 15;
+  }
+  return h >>> 0;
+}
+// Scenario codes (design document section 2): the game's seed is its scenario code.
+// The random numbers come from three separate streams, so that everyone who plays the same
+// code gets the same sites and the same events in the same turns, whatever they decide:
+// - sites of turn t:  only from the seed and t
+// - event of turn t:  only from the seed and t
+// - luck:             objections and market prices (FIP), which depend on the player's own projects
+const STREAM_SITES = 1, STREAM_EVENTS = 2, STREAM_LUCK = 3;
+const turnRandom = (g, stream) => rng(mix(g.seed, stream, g.turn));
 
 // A message for the player: a text code plus the values to fill in.
 function msg(key, vars) { return vars ? { key, vars } : { key }; }
@@ -221,7 +239,7 @@ function calcDesign(design, site, P) {
 // ===== Game state =====
 function newGame(P, seed) {
   const g = {
-    P, r: rng(seed), turn: 1, money: P.startMoney, ap: P.apPerTurn, T: P.startTrust, R: P.startRep,
+    P, seed, luck: rng(mix(seed, STREAM_LUCK)), turn: 1, money: P.startMoney, ap: P.apPerTurn, T: P.startTrust, R: P.startRep,
     strikes: 0, ordinance: false, revFactor: 1, curtail: 1, projects: [], log: [], hist: [],
     negTurns: 0, over: false, lost: null, nextId: 1, cancellations: 0, objectionsTotal: 0
   };
@@ -230,16 +248,20 @@ function newGame(P, seed) {
   return g;
 }
 
+// Three different site types per turn. Four are drawn: the fourth replaces a forest site
+// when a 条例 bans forest sites, so the other offers stay the same as without the 条例.
 function genSites(g) {
-  const pool = SITE_TYPES.filter(s => !(g.ordinance && s === 'forest'));
-  const out = [];
-  const avail = pool.slice();
-  for (let i = 0; i < 3 && avail.length; i++) {
-    const idx = Math.floor(g.r() * avail.length);
-    out.push({ type: avail[idx], promo: g.r() < g.P.promoChance });
-    avail.splice(idx, 1);
+  const r = turnRandom(g, STREAM_SITES);
+  const avail = SITE_TYPES.slice();
+  const drawn = [];
+  for (let i = 0; i < 4; i++) {
+    const type = avail.splice(Math.floor(r() * avail.length), 1)[0];
+    drawn.push({ type, promo: r() < g.P.promoChance });
   }
-  g.sites = out;
+  const offers = drawn.slice(0, 3);
+  const forest = offers.findIndex(s => s.type === 'forest');
+  if (g.ordinance && forest >= 0) offers[forest] = drawn[3];
+  g.sites = offers;
 }
 
 // ===== Residents and acceptance =====
@@ -452,11 +474,15 @@ function cancel(g, p, reason) {
 }
 
 // ===== Events =====
+// The event numbers are always drawn in the same order, so the same scenario code gives the
+// same event in the same turn for everyone (which project a grid delay hits depends on the player).
 function rollEvent(g) {
   const P = g.P;
   g.curtail = 1;
-  if (g.r() >= P.eventChance) return;
-  const ev = Math.floor(g.r() * 8);
+  const r = turnRandom(g, STREAM_EVENTS);
+  const happens = r() < P.eventChance, ev = Math.floor(r() * 8);
+  const policyLow = r() < 0.5, pick = r(), delay = 1 + Math.floor(r() * 3);
+  if (!happens) return;
   const live = g.projects.filter(p => p.status === 'building' || p.status === 'operating');
   if (ev === 0) {
     let hit = 0;
@@ -482,14 +508,14 @@ function rollEvent(g) {
   } else if (ev === 2) {
     const c = g.projects.filter(p => p.status === 'permitting' || p.status === 'building');
     if (c.length) {
-      const p = c[Math.floor(g.r() * c.length)], d = 1 + Math.floor(g.r() * 3);
+      const p = c[Math.floor(pick * c.length)], d = delay;
       if (p.status === 'permitting') p.permitLeft += d; else p.buildLeft += d;
       log(g, 'log.gridDelay', { id: p.id, turns: d });
     } else log(g, 'log.gridDelayNone');
   } else if (ev === 3) {
     g.curtail = P.curtail; log(g, 'log.curtailment');
   } else if (ev === 4) {
-    const f = g.r() < 0.5 ? P.policyLow : P.policyHigh;
+    const f = policyLow ? P.policyLow : P.policyHigh;
     g.revFactor = clamp(g.revFactor * f, 0.5, 1.5);
     log(g, 'log.policyChange', { factor: f });
   } else if (ev === 5) {
@@ -517,7 +543,7 @@ function endTurn(g) {
     const st = p.status;
     if (st === 'permitting') {
       if (!p.engaged) shiftAll(p, -P.silenceDrift);
-      if (g.r() < objectionChance(p, P)) {
+      if (g.luck() < objectionChance(p, P)) {
         p.objections++; g.objectionsTotal++; p.permitLeft += P.objDelay; shiftAll(p, -P.objSPenalty);
         log(g, 'log.objection', { id: p.id, count: p.objections, delay: P.objDelay });
       }
@@ -550,7 +576,7 @@ function endTurn(g) {
         if (p.site === 'forest' && p.calc.bTarget < 0) strike(g, msg('strike.forestNegativeB', { id: p.id }));
       }
     } else if (st === 'operating') {
-      const fip = p.calc.cap >= P.fipThreshold ? P.fipMin + g.r() * (P.fipMax - P.fipMin) : 1;
+      const fip = p.calc.cap >= P.fipThreshold ? P.fipMin + g.luck() * (P.fipMax - P.fipMin) : 1;
       const gross = p.calc.cap * P.revMult * g.revFactor * fip * g.curtail;
       const net = netRevenue(p, P, gross);
       g.money += net;

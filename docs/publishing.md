@@ -92,7 +92,7 @@ By default, GitHub Pages runs every site through a tool called Jekyll, which is 
 
 To remove the game, remove it like any other app (for example press and hold the icon).
 
-**Tips for workshops:**
+**Tips for workshops** (session plans, scenario codes and discussion questions are in the [workshop guide](workshop-guide.md)):
 
 - Ask participants to open the game once while the Wi-Fi works, for example at the start, and to check for the "Ready to play offline" note.
 - On iPhone and iPad, installing is worth it: Safari deletes a website's stored data, including the offline copy and the saved game, when the site hasn't been opened for about a week. Installed games are not affected.

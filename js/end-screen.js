@@ -2,12 +2,14 @@
 //
 // Each built park (operating or sold) is rated in seven categories with ○ (2), △ (1) or × (0).
 // For every category that is not ○, the screen says what would have earned a ○.
+// For workshops, the screen shows the scenario code, and "Copy results" copies a short summary
+// that players can paste into a chat or a shared document to compare their games.
 
 (function (root) {
   'use strict';
   const SC = root.SC = root.SC || {};
   const E = root.SolarEngine;
-  const { esc, fmt } = SC.ui;
+  const { esc, fmt, announce } = SC.ui;
   const $ = id => document.getElementById(id);
 
   // Category: [name, what earns ○]
@@ -53,6 +55,7 @@
 
     $('endView').innerHTML = `
       <h1 class="end-title" tabindex="-1">${esc(t('end.title'))}</h1>
+      <p class="end-code">${esc(t('game.code', { code: g.seed }))}</p>
       <div class="grade-box is-${s.grade}">
         <span class="grade-letter">${s.grade}</span>
         <div>
@@ -67,6 +70,10 @@
         ${stat(t('stat.trust'), fmt(g.T, 0))}
         ${stat(t('end.reputation'), fmt(g.R, 0))}
       </dl>
+      <div class="end-share">
+        <button type="button" class="btn btn-small" data-end="copy">${esc(t('results.copy'))}</button>
+        <textarea class="results-text" id="resultsText" rows="7" readonly hidden aria-label="${esc(t('results.copy'))}"></textarea>
+      </div>
       <p class="nb-end">${esc(t('nb.endCount', { n: SC.notebook.discovered(g).length, total: SC.notebook.count }))}
         <button type="button" class="btn-link" data-nb="">${esc(t('nb.open'))}</button></p>
       <section class="game-section" aria-labelledby="parksTitle">
@@ -76,18 +83,60 @@
       <p class="section-hint end-scale">${esc(t('end.scale', { S: P.gradeS, A: P.gradeA, B: P.gradeB, C: P.gradeC }))}</p>
       <div class="end-buttons">
         <button type="button" class="btn btn-primary" data-end="again">${esc(t('end.again'))}</button>
+        <button type="button" class="btn" data-end="new">${esc(t('start.newGame'))}</button>
         <button type="button" class="btn" data-end="title">${esc(t('end.toTitle'))}</button>
       </div>`;
+  }
+
+  // ----- Results as text, for example to paste into a chat -----
+  function resultsText(g) {
+    const s = E.scoreGame(g);
+    const lines = [
+      `${t('app.title')} – ${t('game.code', { code: g.seed })}`,
+      t('results.grade', { grade: s.grade, label: t(GRADE_TEXT[s.grade]), avg: s.avg, max: MAX_POINTS }),
+      t('results.stats', { cap: s.capBuilt, goal: g.P.capTarget, money: g.money, trust: g.T, rep: g.R })
+    ];
+    if (s.note) lines.push(t(s.note));
+    for (const { p, s: sc } of s.parks) {
+      const marks = Object.entries(CATEGORIES).map(([k, [name]]) => `${t(name)} ${MARKS[sc[k]]}`).join(t('results.separator'));
+      lines.push(t('results.park', {
+        name: t('project.name', { id: p.id }), site: t('site.' + p.site),
+        points: t('end.points', { total: sc.total, max: MAX_POINTS }), marks
+      }));
+    }
+    if (!s.parks.length) lines.push(t('end.noParks'));
+    return lines.join('\n');
+  }
+
+  async function copyResults() {
+    const g = SC.session.game;
+    if (!g) return;
+    const text = resultsText(g);
+    try {
+      await navigator.clipboard.writeText(text);
+      announce(t('results.copied'));
+    } catch (e) {
+      // Copying is not allowed here (for example a file opened by double-click): show the text instead
+      const box = $('resultsText');
+      box.value = text;
+      box.hidden = false;
+      box.focus();
+      box.select();
+      announce(t('results.copyFailed'));
+    }
   }
 
   function init() {
     $('endView').addEventListener('click', e => {
       const b = e.target.closest('[data-end]');
       if (!b) return;
-      if (b.dataset.end === 'again') SC.app.newGame();
+      const g = SC.session.game;
+      if (b.dataset.end === 'copy') copyResults();
+      else if (b.dataset.end === 'again') SC.app.newGame(g && g.seed);   // the same scenario code
+      else if (b.dataset.end === 'new') SC.app.newGame();
       else SC.app.toTitle(true);
     });
   }
 
-  SC.endScreen = { init, render };
+  SC.endScreen = { init, render, resultsText };
 })(globalThis);
