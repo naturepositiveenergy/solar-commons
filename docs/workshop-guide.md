@@ -85,7 +85,7 @@ Pick three or four. The policy notebook entry in brackets has the real-world bac
 **Nature and design**
 - Which nature measures did you use? Why does it matter where hedges and corridors are placed, not just how many? (*Nature-coexistence sites (自然共生サイト)*)
 - Why are forest slopes so risky? Who chose one, and what happened in the heavy rain? (*Forest development permit (林地開発許可)*)
-- What are the advantages and the difficulties of agrivoltaics? (*Agrivoltaics (営農型太陽光発電)*)
+- What are the advantages and the difficulties of agrivoltaics? Did anyone get guidance after a poor harvest? Why does the light under the panels matter? (*Agrivoltaics (営農型太陽光発電)*)
 
 **Same scenario, different outcomes** (codes 1052 and 7870)
 - In turn 11, the heavy rain (1052) or the typhoon (7870) hit everyone. Whose parks were damaged, and why not the others?
@@ -103,6 +103,7 @@ Pick three or four. The policy notebook entry in brackets has the real-world bac
 - **Common reasons players get stuck:**
   - An approved project waits for construction because there isn't enough money. The project card says so. Wait for income, or plan a cheaper park.
   - Residents' support drops during the permit process because nobody talked to them that turn. The hint and the project card warn about this.
+  - An agrivoltaics park gets guidance after a poor harvest. The project card explains it: thin out the panels before the next fiscal year ends.
   - Money stays below 0 for two turns, or trust falls below 5: the game is lost. That is a good starting point for the discussion too.
 - **Games are saved automatically** in the browser. If a page is closed by accident, open the link again and press **Continue game**.
 - **Shared devices:** for the next group, press **Title**, then **New game** or the link again. The game asks before it replaces a saved game.
@@ -125,4 +126,4 @@ More technical help, including installing the game as an app: [publishing.md](pu
 
 - The game simplifies on purpose: its numbers are game values, not real costs, yields or permit times.
 - The policy notebook describes real Japanese policies as of its last review (see [policy-notebook.md](policy-notebook.md)). Policies change. For example, the government has decided to end FIT and FIP support for new ground-mounted solar projects of 10 kW and more from fiscal year 2027, while exceptions (for example for projects in promotion zones) were still being discussed in autumn 2026. Since rules v0.8, the game reflects this: projects submitted from turn 5 (fiscal year 2027) sell at market prices, unless they get the promotion zone bonus. If the final decision on exceptions (expected around January 2027) differs, the game will be updated.
-- The recommended scenario codes above are for the current version of the game (rules v0.8). If the rules change, they may play differently, and this guide will be updated.
+- The recommended scenario codes above are for the current version of the game (rules v0.9). If the rules change, they may play differently, and this guide will be updated.

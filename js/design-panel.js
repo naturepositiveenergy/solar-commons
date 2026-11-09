@@ -140,8 +140,13 @@
       : ['warn', t('design.hedgesLow', { n: place.edgeHedges, need: P.hedgesProtect })]];
     if (place.looseCorridors) placement.push(['warn', t('design.corridorLoose')]);
     else if (place.linkedCorridors) placement.push(['good', t('design.corridorOk')]);
-    $('placementInfo').innerHTML = placement.map(([mood, text]) =>
-      `<p class="is-${mood}"><span aria-hidden="true">${mood === 'good' ? '✓' : '!'}</span> ${esc(text)}</p>`).join('');
+    // Agrivoltaics: enough light for the crops, or the yearly farming reports will be poor (section 6)
+    if (ctx.site === 'agri') {
+      const n = { wide: d.wide || 0, dense: d.dense || 0 };
+      placement.push(E.cropLight(d) ? ['good', t('design.lightOk', n), 'agri'] : ['warn', t('design.lightLow', n), 'agri']);
+    }
+    $('placementInfo').innerHTML = placement.map(([mood, text, entry]) =>
+      `<p class="is-${mood}"><span aria-hidden="true">${mood === 'good' ? '✓' : '!'}</span> ${esc(text)}${entry ? ' ' + SC.notebook.infoButton(entry) : ''}</p>`).join('');
 
     const wish = E.wishesMet(planned);
     const running = calc.mgmtCost + (ctx.benefit ? P.benefitCost : 0);

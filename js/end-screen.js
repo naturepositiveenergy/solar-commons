@@ -1,6 +1,6 @@
 // Solar Commons: the end screen with the final grade (design document section 10).
 //
-// Each built park (operating or sold) is rated in seven categories with ○ (2), △ (1) or × (0).
+// Each built park (operating, sold or removed) is rated in seven categories with ○ (2), △ (1) or × (0).
 // For every category that is not ○, the screen says what would have earned a ○.
 // For workshops, the screen shows the scenario code, and "Copy results" copies a short summary
 // that players can paste into a chat or a shared document to compare their games.

@@ -12,7 +12,7 @@
   const SC = root.SC = root.SC || {};
   const { esc, openDialog } = SC.ui;
   const $ = id => document.getElementById(id);
-  const operated = p => p.status === 'operating' || p.status === 'sold';
+  const operated = p => ['operating', 'sold', 'removed'].includes(p.status);
   const GRID_EVENTS = ['log.gridDelay', 'log.gridDelayNone', 'log.curtailment'];
 
   // The entries in display order: id, main official source, and when it counts as discovered.

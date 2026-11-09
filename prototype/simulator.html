@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Solar Commons balancing simulator</title>
 <!-- The fonts are stored in the project (fonts/, made by tools/make-fonts.js) -->
-<link rel="stylesheet" href="../fonts/fonts.css?v=m7">
+<link rel="stylesheet" href="../fonts/fonts.css?v=m8">
 <style>
 :root {
   --paper: #F4F7F2; --surface: #FFFFFF; --ink: #1F2A24; --muted: #59665D; --line: #D3DCD3;
@@ -94,7 +94,7 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 <div class="wrap">
 <header>
   <h1>Solar Commons balancing simulator</h1>
-  <p>Tests the numbers of design document v0.8, using the same rules engine as the game (js/engine.js). All values are placeholders for game balance, not real cost, yield or permitting data.</p>
+  <p>Tests the numbers of design document v0.9, using the same rules engine as the game (js/engine.js). All values are placeholders for game balance, not real cost, yield or permitting data.</p>
   <div class="strip" aria-hidden="true"><span style="background:var(--careful)"></span><span style="background:var(--balanced)"></span><span style="background:var(--pollen)"></span><span style="background:var(--fast)"></span></div>
 </header>
 <nav role="tablist">
@@ -127,25 +127,25 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 
 <section id="tab-params" hidden>
   <div class="row" style="margin-bottom:16px">
-    <button class="act" id="resetBtn">Reset to v0.8 values</button>
+    <button class="act" id="resetBtn">Reset to v0.9 values</button>
     <button class="act" id="exportBtn">Export as JSON</button>
     <button class="act" id="importBtn">Import JSON</button>
   </div>
-  <p class="muted" style="margin-top:0">Values differing from v0.8 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
+  <p class="muted" style="margin-top:0">Values differing from v0.9 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
   <div id="jsonBox" hidden><textarea id="jsonText" aria-label="Parameters as JSON"></textarea><p class="msg" id="jsonMsg"></p></div>
   <div id="paramForm"></div>
 </section>
 </div>
 
 <!-- Shared files: language system, English texts and the game rules (same engine as the game) -->
-<script src="../js/i18n.js?v=m7"></script>
-<script src="../lang/en.js?v=m7"></script>
-<script src="../js/engine.js?v=m7"></script>
+<script src="../js/i18n.js?v=m8"></script>
+<script src="../lang/en.js?v=m8"></script>
+<script src="../js/engine.js?v=m8"></script>
 <script>
 // Engine functions used by the simulator (the rules themselves are in js/engine.js)
 const {
   defaultParams, RESIDENTS, TILE_KEYS, ACTIONS, calcDesign, newGame, effS, matches, acceptance,
-  startProject, doAction, playerCost, submit, sell, endTurn, scoreGame
+  startProject, doAction, playerCost, submit, sell, endTurn, scoreGame, thinPreview, thinPanels
 } = SolarEngine;
 
 // ===== Strategy presets =====
@@ -227,7 +227,7 @@ function runGame(P, key, seed) {
 }
 
 function batch(P, key, runs) {
-  const res = { worth: [], money: [], cap: [], capOp: [], T: [], B: [], cancel: [], ord: 0, lost: 0, grades: { S: 0, A: 0, B: 0, C: 0, D: 0 }, score: [], objections: [], moneyCurve: [], trustCurve: [], parks: 0, marketParks: 0 };
+  const res = { worth: [], money: [], cap: [], capOp: [], T: [], B: [], cancel: [], ord: 0, lost: 0, grades: { S: 0, A: 0, B: 0, C: 0, D: 0 }, score: [], objections: [], moneyCurve: [], trustCurve: [], parks: 0, marketParks: 0, removed: 0 };
   const turns = P.turns + 1;
   const mSum = new Array(turns).fill(0), tSum = new Array(turns).fill(0);
   for (let i = 0; i < runs; i++) {
@@ -240,6 +240,7 @@ function batch(P, key, runs) {
     const parks = g.projects.filter(p => p.status === 'operating' || p.status === 'sold');
     res.B.push(parks.length ? parks.reduce((s, p) => s + p.B, 0) / parks.length : 0);
     res.parks += parks.length; res.marketParks += parks.filter(p => p.support === 'market').length;
+    res.removed += g.projects.filter(p => p.status === 'removed').length;
     res.cancel.push(g.cancellations); res.objections.push(g.objectionsTotal);
     if (g.ordinance) res.ord++; if (g.lost) res.lost++;
     res.grades[sc.grade]++; res.score.push(sc.avg);
@@ -302,6 +303,10 @@ const PARAM_FORM = [
   ['Sites', 'risk_forest', 'Site risk: forest', 0.1],
   ['Sites', 'risk_brownfield', 'Site risk: brownfield', 0.1],
   ['Sites', 'risk_reservoir', 'Site risk: reservoir', 0.1],
+  ['Sites', 'farmingFailLimit', 'Agrivoltaics: poor farming reports in a row until removal', 1],
+  ['Sites', 'thinCost', 'Agrivoltaics: thinning cost per panel', 0.5],
+  ['Sites', 'removalShare', 'Agrivoltaics: removal cost (share of build cost)', 0.05],
+  ['Sites', 'removalTrust', 'Agrivoltaics: trust lost on removal', 1],
   ['Sites', 'farmlandExtra', '農地転用 extra turns', 1],
   ['Sites', 'forestExtra', '林地開発許可 extra turns', 1],
   ['Sites', 'forestBMod', 'Forest B start modifier', 5],
@@ -377,13 +382,13 @@ let P = defaultParams();
 try { const s = localStorage.getItem('sc-params'); if (s) Object.assign(P, JSON.parse(s)); } catch (e) {}
 function saveParams() { try { localStorage.setItem('sc-params', JSON.stringify(P)); } catch (e) {} updateNote(); }
 function changedCount() { const d = defaultParams(); return Object.keys(d).filter(k => d[k] !== P[k]).length; }
-function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v0.8` : 'Using v0.8 values'; }
+function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v0.9` : 'Using v0.9 values'; }
 
 function renderParams() {
   const d = defaultParams(), groups = {};
   PARAM_FORM.forEach(x => { (groups[x[0]] = groups[x[0]] || []).push(x); });
   $('paramForm').innerHTML = Object.entries(groups).map(([g, list]) => `<fieldset><legend>${esc(g)}</legend><div class="pgrid">` +
-    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[3]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v0.8: ${d[x[1]]}"></label>`).join('') +
+    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[3]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v0.9: ${d[x[1]]}"></label>`).join('') +
     '</div></fieldset>').join('');
   $('paramForm').querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
     const v = parseFloat(inp.value); if (isNaN(v)) { inp.value = P[inp.dataset.k]; return; }
@@ -445,6 +450,7 @@ function runAll() {
     ['Games lost', r => fmt(100 * r.lost / runs, 0) + '%'],
     ['Average park score (0 to 14)', r => fmt(avg(r.score))],
     ['Built parks selling at market prices (no FIT/FIP)', r => fmt(r.parks ? 100 * r.marketParks / r.parks : 0, 0) + '%'],
+    ['Agrivoltaics parks removed per game', r => fmt(r.removed / runs, 2)],
   ];
   const head = `<tr><th>Average over ${runs} games</th>${keys.map(k => `<th><span class="swatch" style="background:${COLORS[k]}"></span>${STRATEGIES[k].name}</th>`).join('')}</tr>`;
   const body = rowsDef.map(([l, f]) => `<tr><td>${l}</td>${keys.map(k => `<td>${f(R[k])}</td>`).join('')}</tr>`).join('') +
@@ -473,7 +479,7 @@ $('runBtn').onclick = () => { $('runBtn').disabled = true; $('runBtn').textConte
 // ---------- manual play ----------
 let G = null, planIdx = null, msg = '';
 const draft = { dense: 0, wide: 10, meadow: 3, hedge: 3, pond: 1, corridor: 1, mgmt: 'grazing', cheap: false };
-const STATUS = { design: 'Design', permitting: 'Permitting', approved: 'Approved, waiting for funds', building: 'Construction', operating: 'Operating', sold: 'Sold', cancelled: 'Cancelled' };
+const STATUS = { design: 'Design', permitting: 'Permitting', approved: 'Approved, waiting for funds', building: 'Construction', operating: 'Operating', sold: 'Sold', removed: 'Removed (farming permit revoked)', cancelled: 'Cancelled' };
 function newManual() { G = newGame({ ...P }, Date.now() % 1e9); planIdx = null; msg = ''; renderPlay(); }
 function resBars(p) {
   const e = effS(p, G.P), m = matches(p, G.P);
@@ -489,17 +495,19 @@ function projCard(p) {
   if (p.status === 'permitting') info = `${p.permitLeft} turn(s) left, objections ${p.objections}/${G.P.maxObjections}`;
   if (p.status === 'building') info = `${p.buildLeft} turn(s) left`;
   if (p.status === 'approved') info = `needs ${fmt(playerCost(p, G.P) - p.planningPaid)} money`;
-  if (p.status === 'operating') info = `B ${fmt(p.B, 0)} of target ${fmt(p.calc.bTarget, 0)}`;
+  if (p.status === 'operating') info = `B ${fmt(p.B, 0)} of target ${fmt(p.calc.bTarget, 0)}` +
+    (p.site === 'agri' && p.lastReport ? `, last farming report ${p.lastReport === 'ok' ? 'good' : 'poor'}` : '');
   const d = p.design;
   const designTxt = TILE_KEYS.filter(k => d[k]).map(k => `${d[k]} ${k}`).join(', ') + `, ${d.mgmt}${d.cheap ? ', cheap build' : ''}`;
   const btns = canEngage ? Object.entries(ACTIONS).map(([k, a]) => `<button class="act" data-a="${k}" data-p="${p.id}" ${G.ap < a.ap || (k === 'fund' && p.fund) || (k === 'benefit' && p.benefit) ? 'disabled' : ''}>${esc(t('action.' + k))} (${a.ap})</button>`).join('') : '';
   return `<div class="card st-${p.status}"><h3>Project ${p.id}: ${esc(siteName(p.site))}${p.promo ? '<span class="tag">promotion zone</span>' : ''}</h3>
     <p class="muted" style="margin:0 0 6px">${STATUS[p.status]}${info ? ', ' + info : ''}. Capacity ${fmt(p.calc.cap)}, cost ${fmt(p.calc.cost)}${p.fund ? ', citizen fund' : ''}${p.benefit ? ', benefit agreement' : ''}.</p>
     <p class="muted" style="margin:0 0 8px;font-size:0.85rem">${esc(designTxt)}</p>
-    ${p.status === 'cancelled' || p.status === 'sold' ? '' : `<p style="margin:0 0 4px"><b>Acceptance ${fmt(A, 0)}</b></p>${resBars(p)}`}
+    ${['cancelled', 'sold', 'removed'].includes(p.status) ? '' : `<p style="margin:0 0 4px"><b>Acceptance ${fmt(A, 0)}</b></p>${resBars(p)}`}
     <div class="row" style="margin-top:10px">${btns}
     ${p.status === 'design' && !G.over ? `<button class="act primary" data-sub="${p.id}">Hold formal 説明会 and submit</button>` : ''}
-    ${p.status === 'operating' && !G.over ? `<button class="act" data-sell="${p.id}">Sell park</button>` : ''}</div></div>`;
+    ${p.status === 'operating' && !G.over ? `<button class="act" data-sell="${p.id}">Sell park</button>` : ''}
+    ${thinPreview(G, p) && !G.over ? `<button class="act" data-thin="${p.id}">Thin out panels (${thinPreview(G, p).tiles} panels, cost ${fmt(thinPreview(G, p).cost)})</button>` : ''}</div></div>`;
 }
 function designForm() {
   const site = G.sites[planIdx]; if (!site) return '';
@@ -520,7 +528,7 @@ function endScreen() {
 }
 function renderPlay() {
   if (!G) { $('play').innerHTML = `<p>Play the scenario yourself, turn by turn, with the current parameters.</p><button class="act primary" id="newGame">Start game</button>`; $('newGame').onclick = newManual; return; }
-  const active = G.projects.filter(p => !['cancelled', 'sold'].includes(p.status));
+  const active = G.projects.filter(p => !['cancelled', 'sold', 'removed'].includes(p.status));
   $('play').innerHTML = `
     <div class="stats">
       <div><b>${Math.min(G.turn, G.P.turns)} / ${G.P.turns}</b>turn</div>
@@ -545,6 +553,7 @@ function renderPlay() {
   q('[data-a]').forEach(b => b.onclick = () => { const r = doAction(G, G.projects.find(p => p.id === +b.dataset.p), b.dataset.a); msg = r.ok ? '' : t(r.msg); renderPlay(); });
   q('[data-sub]').forEach(b => b.onclick = () => { const r = submit(G, G.projects.find(p => p.id === +b.dataset.sub)); msg = r.ok ? '' : t(r.msg); renderPlay(); });
   q('[data-sell]').forEach(b => b.onclick = () => { const r = sell(G, G.projects.find(p => p.id === +b.dataset.sell)); msg = r.ok ? '' : t(r.msg); renderPlay(); });
+  q('[data-thin]').forEach(b => b.onclick = () => { const r = thinPanels(G, G.projects.find(p => p.id === +b.dataset.thin)); msg = r.ok ? '' : t(r.msg); renderPlay(); });
   const st = $('startProj'); if (st) st.onclick = () => { const r = startProject(G, planIdx, { ...draft }); msg = r.ok ? '' : t(r.msg); if (r.ok) planIdx = null; renderPlay(); };
   const cp = $('cancelPlan'); if (cp) cp.onclick = () => { planIdx = null; renderPlay(); };
   const et = $('endTurn'); if (et) et.onclick = () => { endTurn(G); planIdx = null; msg = ''; renderPlay(); };

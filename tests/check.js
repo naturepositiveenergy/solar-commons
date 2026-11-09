@@ -147,9 +147,12 @@ if (failures === beforeMap) console.log('  ✓ corridors and hedges follow the p
 // submits, the preview from just before must match what the engine then actually did.
 // It also checks the end of FIT/FIP (design document section 6): projects submitted from turn
 // supportEndTurn sell at market prices, unless they get the promotion zone bonus.
+// And the yearly farming report for agrivoltaics (section 6): thinning out costs and changes what
+// its preview said, reports come only at fiscal year ends, and only parks with poor reports in a
+// row are removed.
 console.log('Preview check');
 const beforePreview = failures;
-let previews = 0, marketSubmissions = 0, keptByPromo = 0;
+let previews = 0, marketSubmissions = 0, keptByPromo = 0, thins = 0, guidance = 0, removals = 0;
 try {
   for (let i = 0; i < 300; i++) {
     const P = E.defaultParams();
@@ -188,10 +191,28 @@ try {
           else if (roll < 0.7) E.changeDesign(g, p, { ...p.design, hedge: (p.design.hedge || 0) + 1, cheap: false });
         } else if (p.status === 'permitting' && r() < 0.5) {
           E.doAction(g, p, pick(['genuine', 'visit', 'tour']));
+        } else if (p.status === 'operating' && p.id % 2 === 0 && E.thinPreview(g, p) && r() < 0.5) {   // odd projects never thin out
+          const pre = E.thinPreview(g, p), money = g.money, dense = p.design.dense;
+          if (E.thinPanels(g, p).ok) {
+            thins++;
+            if (Math.abs(g.money - (money - pre.cost)) > 1e-9 || Math.abs(p.calc.cap - pre.cap) > 1e-9 ||
+                dense - p.design.dense !== pre.tiles || !E.cropLight(p.design)) {
+              fail(`thinning preview differs (seed ${seedOf(i)}, project ${p.id}): preview ${JSON.stringify(pre)}; actual cost ${money - g.money}, capacity ${p.calc.cap}, ${dense - p.design.dense} tiles`);
+            }
+          }
         }
       }
+      const wasOperating = g.projects.filter(p => p.status === 'operating').map(p => p.id);
       E.endTurn(g);
+      g.projects.filter(p => p.status === 'removed' && wasOperating.includes(p.id)).forEach(p => {
+        removals++;
+        if (p.site !== 'agri' || p.farmingFails < P.farmingFailLimit) fail(`project ${p.id} was removed without ${P.farmingFailLimit} poor farming reports in a row (seed ${seedOf(i)})`);
+      });
     }
+    g.log.filter(l => /^log\.farming/.test(l.msg.key)).forEach(l => {
+      if (l.msg.key === 'log.farmingGuidance') guidance++;
+      if (E.calendar(g, l.turn).quarter !== 4) fail(`a farming report came in turn ${l.turn}, not at the end of a fiscal year (seed ${seedOf(i)})`);
+    });
   }
 } catch (e) {
   fail('the engine stopped with an error: ' + e.message);
@@ -200,6 +221,8 @@ if (failures === beforePreview) {
   console.log(`  ✓ ${previews} submissions: every preview matched what happened`);
   console.log(`  ✓ end of FIT/FIP: ${marketSubmissions} later submissions sell at market prices, ${keptByPromo} kept FIT/FIP with the promotion zone bonus`);
   if (!marketSubmissions || !keptByPromo) fail('the test player never reached both cases of the end of FIT/FIP');
+  console.log(`  ✓ farming reports: ${guidance} guidance, ${thins} thinnings as previewed, ${removals} parks removed after poor reports in a row`);
+  if (!guidance || !thins || !removals) fail('the test player never reached all cases of the yearly farming report');
 }
 
 // ---------- 4. Save check ----------
@@ -216,7 +239,7 @@ ctx.localStorage = {
 };
 vm.runInContext(read('js/save.js'), ctx, { filename: 'js/save.js' });
 const session = ctx.SC.session;
-let resumes = 0;
+let resumes = 0, savedThins = 0;
 try {
   for (let i = 0; i < 100 && failures === beforeSave; i++) {
     const r = E.rng(seedOf(i) + 2);
@@ -226,10 +249,12 @@ try {
       ? { map: randomMap(r), mgmt: pick(['none', 'mowing', 'grazing']), cheap: r() < 0.3 }
       : { dense: n(12), wide: n(12), meadow: n(5), hedge: n(5), pond: n(3), corridor: n(3),
         mgmt: pick(['none', 'mowing', 'grazing']), cheap: r() < 0.3 });
-    session.start();
+    session.start(String(1000 + (seedOf(i) % 9000)));   // a fixed code, so every run plays the same games
     for (let step = 0; step < 500 && !session.game.over; step++) {
       const g = session.game, roll = r();
-      if (roll < 0.15 && g.sites.length) session.act('start', n(g.sites.length), design());
+      const thinnable = g.projects.find(p => E.thinPreview(g, p));
+      if (thinnable && r() < 0.5) { if (session.act('thin', thinnable.id).ok) savedThins++; }
+      else if (roll < 0.15 && g.sites.length) session.act('start', n(g.sites.length), design());
       else if (roll < 0.6 && g.projects.length) {
         const p = pick(g.projects);
         const what = pick(['engage', 'engage', 'submit', 'drop', 'redesign', 'sell']);
@@ -250,7 +275,33 @@ try {
       }
     }
   }
+  // Thinning out panels (design document section 6) is saved and continued like any other action:
+  // scenario 1016 offers agrivoltaics in turn 1; a park with dense panels gets guidance, then thins out.
+  if (failures === beforeSave) {
+    session.start('1016');
+    let g = session.game;
+    const map = 'd'.repeat(16) + '.'.repeat(E.MAP_SIDE * E.MAP_SIDE - 16);
+    const started = session.act('start', g.sites.findIndex(s => s.type === 'agri'), { map, mgmt: 'none', cheap: false });
+    const id = started.ok ? started.p.id : 0;
+    session.act('engage', id, 'genuine');
+    session.act('submit', id);
+    while (!session.game.over && !E.thinPreview(session.game, session.game.projects[0])) {
+      g = session.game;
+      if (g.projects[0].status === 'permitting') session.act('engage', id, 'visit');
+      session.act('endTurn');
+    }
+    if (session.game.over || !session.act('thin', id).ok) fail('the thinning test game never reached guidance, or thinning failed');
+    else {
+      savedThins++;
+      const before = JSON.stringify(session.game);
+      session.end(false);
+      if (!session.resume() || JSON.stringify(session.game) !== before) fail('a game with a thinning was not continued identically');
+    }
+    session.end(true);
+  }
   // A save made with other rules must not be continued.
+  session.start('2417');
+  session.act('endTurn');
   const saved = JSON.parse(storage['sc-save']);
   storage['sc-save'] = JSON.stringify({ ...saved, rules: 'other' });
   if (session.resume()) fail('a save made with other rules was continued');
@@ -271,7 +322,8 @@ try {
 } catch (e) {
   fail('the save check stopped with an error: ' + e.message);
 }
-if (failures === beforeSave) console.log(`  ✓ games were continued from their save ${resumes} times, always identical`);
+if (failures === beforeSave) console.log(`  ✓ games were continued from their save ${resumes} times, always identical (${savedThins} thinnings saved)`);
+if (!savedThins) fail("the save check never saved a thinning");
 
 // ---------- 5. Text check ----------
 console.log('Text check');

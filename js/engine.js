@@ -1,4 +1,4 @@
-// Solar Commons: game rules engine (design document v0.8)
+// Solar Commons: game rules engine (design document v0.9)
 //
 // This file is the referee of the game. It knows every rule and number,
 // but it never draws anything on screen and contains no texts. Messages for
@@ -11,7 +11,7 @@
 (function (root) {
 'use strict';
 
-// ===== Numbers (design document v0.8) =====
+// ===== Numbers (design document v0.9) =====
 // All rule numbers in one place. The simulator can override them for testing.
 const DEFAULT_PARAMS = {
   // Game
@@ -45,6 +45,11 @@ const DEFAULT_PARAMS = {
   drainageCost: 0.2,       // forest drainage: +20% cost
   promoChance: 0.2,        // chance a site lies in a promotion zone
   promoTurns: 1, promoRisk: 0.7, promoA: 10,
+  // Agrivoltaics: the yearly farming report (section 6, added in v0.9)
+  farmingFailLimit: 2,     // poor yearly reports in a row until the permit is revoked and the park removed
+  thinCost: 1,             // cost per dense panel changed to a wide-spaced one when thinning out
+  removalShare: 0.1,       // removal cost of a park whose permit is revoked, share of its build cost
+  removalTrust: 8,         // trust lost when a park must be removed
 
   // Community (section 5)
   genuineGain: 10, visitGain: 20, tourGain: 15,
@@ -105,13 +110,14 @@ const ACTIONS = {   // engagement actions and their cost in action points
   fund: { ap: 2 },
   benefit: { ap: 1 }
 };
-// Project stages, in order. 'dropped' = given up before submission (no penalty).
-const STATUSES = ['design', 'permitting', 'approved', 'building', 'operating', 'sold', 'cancelled', 'dropped'];
+// Project stages, in order. 'removed' = an agrivoltaics park whose permit was revoked (added in v0.9).
+// 'dropped' = given up before submission (no penalty).
+const STATUSES = ['design', 'permitting', 'approved', 'building', 'operating', 'sold', 'removed', 'cancelled', 'dropped'];
 // Management options for a park (section 5)
 const MANAGEMENT = ['none', 'mowing', 'grazing'];
 // Version of the rules. Change it together with docs/design.md: saved games made
 // with other rules are not continued, because they would play differently.
-const RULES_VERSION = 'v0.8';
+const RULES_VERSION = 'v0.9';
 
 // ===== Helpers =====
 // Random numbers from a seed: the same seed always gives the same numbers.
@@ -316,7 +322,7 @@ function startProject(g, siteIdx, design) {
     id: g.nextId++, site: site.type, promo: site.promo, promoActive: false, design: normalizeDesign(design), calc,
     S: S.map(s => clamp(s, -100, 100)), status: 'design', genuineBefore: false, genuineAny: false,
     fund: false, benefit: false, objections: 0, engaged: false, damaged: false, struck: false,
-    support: null, permitLeft: 0, buildLeft: 0, planningPaid: 0, B: calc.mod, finalA: null, sellTimer: 0, waitLogged: false
+    support: null, farmingFails: 0, lastReport: null, permitLeft: 0, buildLeft: 0, planningPaid: 0, B: calc.mod, finalA: null, sellTimer: 0, waitLogged: false
   };
   g.projects.push(p);
   g.sites.splice(siteIdx, 1);
@@ -411,6 +417,63 @@ function supportScheme(g, p) { return p.support || schemeAt(g, p, promoQualifies
 function priceRange(P, scheme) {
   return scheme === 'market' ? [P.marketMin, P.marketMax] : scheme === 'fip' ? [P.fipMin, P.fipMax] : [1, 1];
 }
+// ===== Agrivoltaics: the yearly farming report (section 6, added in v0.9) =====
+// The crops under the panels get enough light if there are at least as many wide-spaced as dense panels.
+// Also works for a design that is still being planned.
+function cropLight(design) {
+  const d = design.map ? normalizeDesign(design) : design;
+  return (d.wide || 0) >= (d.dense || 0);
+}
+
+// At the end of each fiscal year, every operating agrivoltaics park reports its harvest.
+// A poor harvest brings guidance; poor harvests in farmingFailLimit reports in a row revoke the
+// permit: the park is removed (removal cost, trust lost, one strike).
+function farmingReport(g, p) {
+  const P = g.P;
+  if (cropLight(p.design)) {
+    p.farmingFails = 0; p.lastReport = 'ok';
+    log(g, 'log.farmingOk', { id: p.id });
+    return;
+  }
+  p.farmingFails++; p.lastReport = 'low';
+  if (p.farmingFails < P.farmingFailLimit) { log(g, 'log.farmingGuidance', { id: p.id }); return; }
+  const cost = p.calc.cost * P.removalShare;
+  p.status = 'removed'; g.money -= cost; g.T -= P.removalTrust;
+  log(g, 'log.farmingRemoved', { id: p.id, cost, trust: P.removalTrust });
+  strike(g, msg('strike.farmingRemoved', { id: p.id }));
+}
+
+// What thinning out the panels would mean: { tiles, cost, cap } (dense panels changed to wide-spaced
+// ones, the cost, and the capacity afterwards), or null if it is not possible now. Possible for an
+// operating agrivoltaics park after a poor harvest report, while its crops still get too little light.
+function thinPreview(g, p) {
+  if (p.status !== 'operating' || p.site !== 'agri' || !p.farmingFails || cropLight(p.design)) return null;
+  const P = g.P, d = p.design;
+  const tiles = Math.ceil(((d.dense || 0) - (d.wide || 0)) / 2);
+  return { tiles, cost: tiles * P.thinCost, cap: p.calc.cap - tiles * (P.denseCap - P.wideCap) };
+}
+
+// Thin out the panels: change just enough dense panels to wide-spaced ones, spread over the map.
+function thinPanels(g, p) {
+  const pre = thinPreview(g, p);
+  if (!pre) return { ok: false, msg: msg('err.thinStatus') };
+  if (g.money < pre.cost) return { ok: false, msg: msg('err.thinMoney', { cost: pre.cost }) };
+  const d = p.design;
+  let next;
+  if (d.map) {
+    const cells = [...d.map];
+    const dense = cells.map((c, i) => (c === TILE_LETTERS.dense ? i : -1)).filter(i => i >= 0);
+    for (let k = 0; k < pre.tiles; k++) cells[dense[Math.floor(k * dense.length / pre.tiles)]] = TILE_LETTERS.wide;
+    next = normalizeDesign({ ...d, map: cells.join('') });
+  } else {
+    next = { ...d, dense: d.dense - pre.tiles, wide: (d.wide || 0) + pre.tiles };
+  }
+  g.money -= pre.cost;
+  p.design = next; p.calc = calcDesign(next, p.site, g.P);
+  log(g, 'log.thinned', { id: p.id, tiles: pre.tiles, cost: pre.cost, cap: p.calc.cap });
+  return { ok: true };
+}
+
 // Fiscal year and quarter of a turn, for showing dates (turn 1 = fiscal year startFY, April to June).
 function calendar(g, turn = g.turn) {
   return { fy: g.P.startFY + Math.floor((turn - 1) / 4), quarter: (turn - 1) % 4 + 1 };
@@ -562,8 +625,9 @@ function endTurn(g) {
   if (g.over) return;
   const P = g.P;
   rollEvent(g);
+  const yearEnd = calendar(g).quarter === 4;   // the yearly farming reports are due
   g.projects.forEach(p => {
-    if (p.benefit && !['cancelled', 'sold', 'dropped'].includes(p.status)) g.money -= P.benefitCost;
+    if (p.benefit && !['cancelled', 'sold', 'removed', 'dropped'].includes(p.status)) g.money -= P.benefitCost;
   });
   g.projects.forEach(p => {
     const st = p.status;
@@ -608,6 +672,7 @@ function endTurn(g) {
       const net = netRevenue(p, P, gross);
       g.money += net;
       p.B += P.bGrowth * (p.calc.bTarget - p.B);
+      if (yearEnd && p.site === 'agri') farmingReport(g, p);
     } else if (st === 'sold') {
       if (p.sellTimer > 0) {
         p.sellTimer--;
@@ -640,17 +705,18 @@ function scorePark(p, P) {
     safety: !d.cheap && screenHedges(d, p.calc) >= 3 ? 2 : !d.cheap ? 1 : 0,
     community: p.genuineBefore && p.objections === 0 ? 2 : (p.genuineAny || p.objections <= 1) ? 1 : 0,
     benefit: p.fund || p.benefit ? 2 : 0,
-    longterm: p.status === 'sold' ? 0 : p.damaged ? 1 : 2
+    longterm: p.status === 'sold' || p.status === 'removed' ? 0 : p.damaged ? 1 : 2
   };
   s.total = Object.values(s).reduce((a, b) => a + b, 0);
   return s;
 }
 
 // note is null, or a message explaining why the grade is D.
+// Removed parks are scored, but their capacity no longer counts (section 10).
 function scoreGame(g) {
   const P = g.P;
-  const parks = g.projects.filter(p => p.status === 'operating' || p.status === 'sold');
-  const capBuilt = parks.reduce((s, p) => s + p.calc.cap, 0);
+  const parks = g.projects.filter(p => ['operating', 'sold', 'removed'].includes(p.status));
+  const capBuilt = parks.filter(p => p.status !== 'removed').reduce((s, p) => s + p.calc.cap, 0);
   const per = parks.map(p => ({ p, s: scorePark(p, P) }));
   const avg = per.length ? per.reduce((s, x) => s + x.s.total, 0) / per.length : 0;
   let grade = avg >= P.gradeS ? 'S' : avg >= P.gradeA ? 'A' : avg >= P.gradeB ? 'B' : avg >= P.gradeC ? 'C' : 'D';
@@ -667,11 +733,12 @@ const api = {
   defaultParams, SITE_TYPES, RESIDENTS, TILE_KEYS, ACTIONS, STATUSES, MANAGEMENT, RULES_VERSION,
   MAP_SIDE, TILE_LETTERS,
   // game and player actions
-  rng, clamp, newGame, startProject, changeDesign, dropProject, doAction, submit, sell, endTurn,
+  rng, clamp, newGame, startProject, changeDesign, dropProject, doAction, submit, sell, thinPanels, endTurn,
   // questions the screens can ask (they never change the game)
   calcDesign, designProblem, countsFromMap, normalizeDesign, mapPlacement,
   wishesMet, effS, matches, acceptance, checkAction, visitTarget,
   playerCost, planningCost, buildPayment, salePrice, expectedIncome, supportScheme, priceRange, calendar,
+  cropLight, thinPreview,
   promoQualifies, sitePermitTurns, submitPreview, objectionChance, objectionPreview,
   // scoring
   scorePark, scoreGame

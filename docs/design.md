@@ -1,6 +1,8 @@
 # Solar Commons (working title)
 
-**Game Design Document v0.8** | Christian Doedt | Draft for discussion
+**Game Design Document v0.9** | Christian Doedt | Draft for discussion
+
+*Changes in v0.9: the yearly farming report for agrivoltaics. At the end of each fiscal year, agrivoltaics parks report their harvest; a park whose crops get too little light gets guidance, can thin out its panels, and is removed after two poor reports in a row (sections 4, 6, 7 and 10). The balance of the three strategies is unchanged (section 11).*
 
 *Changes in v0.8: the end of FIT/FIP support for new ground-mounted solar from fiscal year 2027. The scenario now runs from April 2026 (fiscal year 2026) to March 2031. Projects submitted from turn 5 (fiscal year 2027) sell at market prices, except projects with the promotion zone bonus, which keep FIT/FIP (sections 2, 4, 6 and 8). The balance is unchanged (section 11).*
 
@@ -48,7 +50,7 @@ One turn = one quarter. A scenario lasts 20 turns (5 years): fiscal years 2026 t
 | Site | Base permit time | Site risk | Required permits |
 |---|---|---|---|
 | Abandoned farmland (耕作放棄地) | 3 (+1 農地転用) | 1.0 | 農地転用 |
-| Agrivoltaics (営農型) | 4 | 0.8 | 一時転用, farmer partner (farmer S +20) |
+| Agrivoltaics (営農型) | 4 | 0.8 | 一時転用, farmer partner (farmer S +20), yearly farming report (section 6) |
 | Forested slope | 5 (+2 林地開発許可) | 1.6 | B starts at −30, elderly and nature group S −20 |
 | Brownfield | 2 | 0.6 | None extra |
 | Reservoir (floating) | 4 | 0.9 | Water/fishery consent |
@@ -107,7 +109,7 @@ Each real policy appears as a permit card or rule with a short bilingual explana
 |---|---|
 | Resident briefing before FIT/FIP certification (再エネ特措法) | 説明会 is mandatory; player chooses formal or genuine |
 | 農地転用 (farmland conversion) | +1 permit turn |
-| 営農型 一時転用 | Periodic renewal check; if farming quality is neglected, permit is revoked (not yet in simulator) |
+| 営農型 一時転用 and the yearly farming report | See "Yearly farming report" below |
 | 林地開発許可 | +2 permit turns; drainage required (cost +20%) |
 | Local solar ordinance (条例) | Triggered by bad projects (see 7) |
 | Promotion zones (地域脱炭素化促進事業) | See section 4 |
@@ -116,7 +118,17 @@ Each real policy appears as a permit card or rule with a short bilingual explana
 | Grid connection and curtailment (出力制御) | Events (see 9) |
 | Decommissioning reserve (廃棄等費用積立) | 5% of gross revenue |
 
+**Yearly farming report (営農型, added in v0.9):** at the end of each fiscal year (after turns 4, 8, 12, 16 and 20), every operating agrivoltaics park reports its harvest. Parks that start operating in that same turn report from the next fiscal year.
+
+- **Enough light:** the harvest is good if the park has at least as many wide-spaced as dense panels (in reality: panels should shade the field by less than 30%). The design panel shows this while planning.
+- **First poor report:** guidance from the 農業委員会, no penalty.
+- **Thinning out:** after guidance, the player can thin out the panels: just enough dense panels become wide-spaced ones, ⌈(dense − wide) / 2⌉ tiles, spread over the map. Cost 1 per tile; capacity −0.3 per tile. The next report is then good, which ends the guidance.
+- **Second poor report in a row:** the permit is revoked and the park is removed: removal cost 10% of the build cost, T −8, one strike. A removed park earns nothing more and no longer counts towards built capacity, but is still scored (section 10).
+- Sold parks no longer report (the new owner is responsible).
+
 **Verification needed:** thresholds and details (e.g. which project sizes require FIP, forest permit area thresholds, the briefing requirement, current 営農型 rules after the 2026 revision) have changed in recent years. Check these against current regulations before finalising texts.
+
+**Agrivoltaics (status November 2026):** today, the harvest must be reported every year, and yields must not fall more than about 20% below the local average; poor results bring guidance, and serious cases left uncorrected can lead to refusal of re-permission, suspended FIT payments and a removal order. A new framework, approved by a MAFF expert panel on 15 April 2026, moves the legal basis to the 農山漁村再エネ法 and sets shading below 30% in principle, with rice, wheat and soybeans as recommended crops; yields well below the requirement for two years or more are named as a case for strict guidance. In August 2026 the drafts had finished public comment; the start date (end of 2026 or April 2027) is still to be confirmed.
 
 **End of FIT/FIP (status November 2026):** decided in March 2026 for new ground-mounted business solar of 10 kW and more from fiscal year 2027 (already certified projects and FY2026 auction winners keep their support; roof-mounted solar keeps it). Exceptions for national and municipal land, certified projects in promotion zones, carports and infrastructure spaces were proposed in September 2026, with a decision expected around January 2027; agrivoltaics are still under review. The game models only the promotion zone exception, because only promotion zones exist in the game. Submission in the game stands for the certification application. If the final decision differs (for example for agrivoltaics), revisit this rule.
 
@@ -133,7 +145,7 @@ This strategy is deliberately attractive in the short term.
 
 **Delayed consequences**
 
-- A regional strike is added for each cancelled project, each cheap build damaged by an event, a park starting operation with A below 30, a forest park with negative biodiversity target, and each rival developer's bad project
+- A regional strike is added for each cancelled project, each cheap build damaged by an event, a park starting operation with A below 30, a forest park with negative biodiversity target, each agrivoltaics park removed after poor harvests, and each rival developer's bad project
 - At 2 strikes, or if T falls below 30, the municipality enacts a 条例: permit time +2, 自治会 consent required at the end of permitting (A ≥ 60, otherwise counts as an objection and delays one turn), forest sites banned
 - The 条例 applies to all future projects, including good ones
 
@@ -164,7 +176,7 @@ This strategy is deliberately attractive in the short term.
 
 ## 10. Scoring
 
-At the end of the scenario, each built park (operating or sold) is rated in seven categories with ○ (2), △ (1), or × (0).
+At the end of the scenario, each built park (operating, sold or removed) is rated in seven categories with ○ (2), △ (1), or × (0).
 
 | Category | ○ | △ | × |
 |---|---|---|---|
@@ -174,15 +186,15 @@ At the end of the scenario, each built park (operating or sold) is rated in seve
 | Safety and landscape | No cheap build, 3+ hedges on the edge | No cheap build | Cheap build |
 | Community process | Genuine 説明会 before submission, no objections | Any genuine 説明会 or max. 1 objection | Otherwise |
 | Local benefit | Citizen fund or benefit agreement | | None |
-| Long-term responsibility | Kept, never damaged | Kept, damaged | Sold |
+| Long-term responsibility | Kept, never damaged | Kept, damaged | Sold or removed |
 
 **Final grade:** average park score (0 to 14): S from 13, A from 10, B from 7, C from 4, D below 4.
 
-Grade D is given regardless of score if built capacity (including sold parks) is below 15, or if the game is lost.
+Grade D is given regardless of score if built capacity (including sold parks, but not removed parks) is below 15, or if the game is lost.
 
 **Lose conditions:** money below 0 for 2 consecutive turns, or T below 5.
 
-## 11. Balance status (simulator, 1,000 games per strategy, v0.8)
+## 11. Balance status (simulator, 1,000 games per strategy, v0.9)
 
 | | Careful | Balanced | Fast and cheap |
 |---|---|---|---|
@@ -200,7 +212,9 @@ All eight intended-outcome checks pass. Careful costs some money but gives the b
 
 **Ideas for the prototype stage (realism, values to be checked against real cases):** citizen fund uptake depends on acceptance, a one-turn subscription period, and an investor return slightly above the financing share.
 
-**Simplifications in the simulator:** its computer players do not draw maps, so it assumes good placement (all hedges on the edge, all corridors connected). The 営農型 renewal check is not yet modelled.
+**Effect of the yearly farming report (v0.9):** none of the three strategies is affected: careful and balanced players use at least as many wide-spaced as dense panels on agrivoltaics sites, and fast-and-cheap players never build there. A test player who fills agrivoltaics sites with dense panels gets guidance for almost all of these parks. If it ignores the guidance, about half of these parks are removed (in about 60% of its games): its average park score falls from 8.3 to 7.4, built capacity from ~45 to ~28, and grade D rises from 2% to 17% of games. If it thins out after guidance, no park is removed, thinning keeps about 85% of a park's capacity, and its average park score rises to 8.7, but it ends with less money (~87 instead of ~111).
+
+**Simplifications in the simulator:** its computer players do not draw maps, so it assumes good placement (all hedges on the edge, all corridors connected). They never need to thin out panels.
 
 ## 12. MVP scope
 

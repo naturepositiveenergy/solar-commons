@@ -32,6 +32,7 @@
     engage: (g, id, action) => (find(g, id) ? E.doAction(g, find(g, id), action) : noProject),
     submit: (g, id) => (find(g, id) ? E.submit(g, find(g, id)) : noProject),
     sell: (g, id) => (find(g, id) ? E.sell(g, find(g, id)) : noProject),
+    thin: (g, id) => (find(g, id) ? E.thinPanels(g, find(g, id)) : noProject),
     endTurn: g => { E.endTurn(g); return { ok: true }; }
   };
   const copy = value => JSON.parse(JSON.stringify(value));

@@ -19,14 +19,14 @@
   const siteRiskLevel = risk => (risk < 0.75 ? 'risk.low' : risk <= 1 ? 'risk.medium' : 'risk.high');
   const riskMood = level => (level === 'risk.high' ? 'bad' : level === 'risk.medium' ? 'warn' : '');
 
-  const ENDED = ['sold', 'cancelled', 'dropped'];
-  const ENDED_TEXT = { sold: 'project.sold', cancelled: 'project.cancelled', dropped: 'project.dropped' };
+  const ENDED = ['sold', 'removed', 'cancelled', 'dropped'];
+  const ENDED_TEXT = { sold: 'project.sold', removed: 'project.removed', cancelled: 'project.cancelled', dropped: 'project.dropped' };
   const SUPPORT_MATTERS = ['design', 'permitting', 'approved', 'building'];
 
   // How log messages are marked in the turn report and the log
-  const GOOD = ['log.approved', 'log.constructionStarted', 'log.operating', 'log.rareFound'];
+  const GOOD = ['log.approved', 'log.constructionStarted', 'log.operating', 'log.rareFound', 'log.farmingOk'];
   const BAD = ['log.objection', 'log.cancelled', 'log.strike', 'log.ordinance', 'log.consentRefused',
-    'log.neglected', 'log.lostMoney', 'log.lostTrust', 'log.rival'];
+    'log.neglected', 'log.lostMoney', 'log.lostTrust', 'log.rival', 'log.farmingGuidance', 'log.farmingRemoved'];
   const EVENT = ['log.typhoon', 'log.heavyRain', 'log.gridDelay', 'log.gridDelayNone', 'log.curtailment',
     'log.policyChange', 'log.media', 'log.rareNone', 'log.supportEnded'];
   const moodOf = key => (GOOD.includes(key) ? 'is-good' : BAD.includes(key) ? 'is-bad' : EVENT.includes(key) ? 'is-event' : '');
@@ -65,7 +65,8 @@
   // Notebook entries for site types and log messages
   const SITE_ENTRY = { farmland: 'farmland', agri: 'agri', forest: 'forest' };
   const LOG_ENTRY = { 'log.gridDelay': 'grid', 'log.gridDelayNone': 'grid', 'log.curtailment': 'grid',
-    'log.ordinance': 'ordinance', 'log.rareFound': 'natureSite', 'log.supportEnded': 'fitfip' };
+    'log.ordinance': 'ordinance', 'log.rareFound': 'natureSite', 'log.supportEnded': 'fitfip',
+    'log.farmingOk': 'agri', 'log.farmingGuidance': 'agri', 'log.farmingRemoved': 'agri', 'log.thinned': 'agri' };
   const logLine = m => `<li class="${moodOf(m.key)}">${esc(t(m))}${LOG_ENTRY[m.key] ? ' ' + info(LOG_ENTRY[m.key]) : ''}</li>`;
 
   function statusHtml(g) {
@@ -160,7 +161,7 @@
     if (ENDED.includes(p.status)) {
       return `<article class="card project-card is-ended">${head}${top(`<p class="state-line">${esc(t(ENDED_TEXT[p.status]))}</p>`)}</article>`;
     }
-    const lines = stateLines(g, p).map(([text, mood, entry]) =>
+    const lines = [...stateLines(g, p), ...farmingLines(g, p)].map(([text, mood, entry]) =>
       `<p class="state-line${mood ? ' is-' + mood : ''}">${esc(text)}${entry ? ' ' + info(entry) : ''}</p>`).join('');
     const support = SUPPORT_MATTERS.includes(p.status);
     const canTalk = !g.over && ['design', 'permitting', 'approved'].includes(p.status);
@@ -210,6 +211,19 @@
       case 'building': return [[t('project.building', { turns: p.buildLeft })]];
       case 'operating': return [[t('project.operating', { b: p.B, target: p.calc.bTarget, income: E.expectedIncome(g, p) }), '', 'fitfip']];
     }
+    return [];
+  }
+
+  // Agrivoltaics: light for the crops and the yearly farming report (design document section 6)
+  function farmingLines(g, p) {
+    if (p.site !== 'agri') return [];
+    if (p.status === 'operating' && p.farmingFails) {
+      return E.cropLight(p.design)
+        ? [[t('project.farmingThinned'), 'good', 'agri']]
+        : [[t('project.farmingGuidance', { fy: E.calendar(g).fy }), 'bad', 'agri']];
+    }
+    if (!E.cropLight(p.design)) return [[t('project.lightLow'), 'warn', 'agri']];
+    if (p.status === 'operating' && p.lastReport === 'ok') return [[t('project.farmingOk'), 'good', 'agri']];
     return [];
   }
 
@@ -274,7 +288,9 @@
         ${btn('drop', t('project.drop'), 'btn-quiet')}
       </div>`;
     }
-    if (p.status === 'operating') return `<div class="project-buttons">${btn('sell', t('project.sell'), '')}</div>`;
+    if (p.status === 'operating') {
+      return `<div class="project-buttons">${E.thinPreview(g, p) ? btn('thin', t('project.thin'), 'btn-primary') : ''}${btn('sell', t('project.sell'), '')}</div>`;
+    }
     return '';
   }
 
@@ -352,12 +368,22 @@
     render();
   }
 
-  // Selling and dropping cannot be undone, so ask first.
+  // Selling, dropping and thinning out cannot be undone, so ask first.
   async function askThenAct(type, id, button) {
     const g = game(), p = g.projects.find(x => x.id === id);
-    const texts = type === 'sell'
-      ? { title: t('confirm.sellTitle', { id }), text: t('confirm.sellText', { price: E.salePrice(p, g.P) }), ok: t('confirm.sellOk') }
-      : { title: t('confirm.dropTitle', { id }), text: t('confirm.dropText'), ok: t('confirm.dropOk') };
+    let texts;
+    if (type === 'sell') {
+      texts = { title: t('confirm.sellTitle', { id }), text: t('confirm.sellText', { price: E.salePrice(p, g.P) }), ok: t('confirm.sellOk') };
+    } else if (type === 'thin') {
+      const pre = E.thinPreview(g, p);
+      if (!pre) return;
+      // not enough money: say so right away instead of asking first
+      if (g.money < pre.cost) return announce(t({ key: 'err.thinMoney', vars: { cost: pre.cost } }));
+      texts = { title: t('confirm.thinTitle', { id }), ok: t('confirm.thinOk'),
+        text: t('confirm.thinText', { tiles: pre.tiles, cost: pre.cost, from: p.calc.cap, to: pre.cap }) };
+    } else {
+      texts = { title: t('confirm.dropTitle', { id }), text: t('confirm.dropText'), ok: t('confirm.dropOk') };
+    }
     if (await confirmDialog({ ...texts, cancel: t('common.cancel') }, button)) {
       act([type, id], id);
       focusOn('title-' + id);
@@ -373,6 +399,7 @@
       case 'submit': return act(['submit', id], id);
       case 'sell': return askThenAct('sell', id, b);
       case 'drop': return askThenAct('drop', id, b);
+      case 'thin': return askThenAct('thin', id, b);
       case 'endTurn': return endTurn();
       case 'plan': return SC.designPanel.openNew(Number(b.dataset.site));
       case 'redesign': return SC.designPanel.openChange(id);
