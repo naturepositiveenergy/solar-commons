@@ -74,8 +74,8 @@ After your review, the texts move into `lang/en.js` and `lang/ja.js`. This file 
 - JA: 営農型太陽光発電では、パネルを支える支柱の部分に一時転用の許可が必要で、パートナーの農家が事業を支持します。毎年度末に、発電所は収穫を報告します。密なパネルが間隔を空けたパネルより多いと、作物に光が足りません。収穫が不十分だと指導を受け、パネルを間引くことができます。2回続けて不十分だと許可が取り消され、発電所を撤去しなければなりません。
 
 **In reality**
-- EN: Panels stand on posts above fields that are still farmed; only the land under the posts is converted, for a limited time. The harvest must be reported every year, and yields must not fall more than about 20% below the local average. Poor results bring guidance; serious cases left uncorrected can lead to refusal of re-permission and an order to remove the panels. A new framework, approved by an expert panel of the agriculture ministry in April 2026, limits shading to under 30% in principle and recommends rice, wheat and soybeans; its start date was still open in November 2026.
-- JA: 耕作を続ける農地の上に支柱を立ててパネルを設置し、支柱の部分だけを期間を限って転用します。毎年の収穫の報告が義務で、単収は地域の平均と比べて2割以上減ってはいけません。結果が不十分だと指導を受け、改善されない深刻な場合は、再許可が認められず、設備の撤去を命じられることがあります。2026年4月に農林水産省の検討会が了承した新しい枠組みでは、遮光率を原則30％未満とし、米・麦・大豆の栽培を推奨しています。開始時期は2026年11月時点でまだ決まっていません。
+- EN: Panels stand on posts above fields that are still farmed; only the land under the posts is converted, for a limited time. The harvest must be reported every year, and yields must not fall more than about 20% below the local average. Poor results bring guidance; serious cases left uncorrected can lead to refusal of re-permission and an order to remove the panels. A new framework, approved by an expert panel of the agriculture ministry in April 2026, takes effect in April 2027: it limits shading to under 30% in principle and recommends rice, wheat and soybeans.
+- JA: 耕作を続ける農地の上に支柱を立ててパネルを設置し、支柱の部分だけを期間を限って転用します。毎年の収穫の報告が義務で、単収は地域の平均と比べて2割以上減ってはいけません。結果が不十分だと指導を受け、改善されない深刻な場合は、再許可が認められず、設備の撤去を命じられることがあります。2026年4月に農林水産省の検討会が了承した新しい枠組みは、2027年4月から始まります。遮光率を原則30％未満とし、米・麦・大豆の栽培を推奨しています。
 
 **Sources**
 - 農林水産省 guideline (Mar 2024), copy on 埼玉県 site: https://www.pref.saitama.lg.jp/documents/9554/02_einogata-14.pdf
@@ -86,7 +86,7 @@ After your review, the texts move into `lang/en.js` and `lang/ja.js`. This file 
 - PwC, 営農型太陽光発電の新たな制度枠組み (27 Aug 2026) *(secondary)*: https://www.pwc.com/jp/ja/knowledge/news/legal-news/legal-20260827-3.html
 - 農林水産省, 営農型太陽光発電について: https://www.maff.go.jp/j/shokusan/renewable/energy/einou.html
 
-**Please check:** the 2026 framework (expert panel of 15 April 2026: legal basis moved to the 農山漁村再エネ法, shading under 30% in principle, rice, wheat and soybeans recommended) is known only from secondary sources; its start date (end of 2026 or April 2027) is still open, so the last sentence of "In reality" needs an update once it is in force. The permit periods ("3 or 10 years") are still left out because I could not confirm the current wording. In the game, "at least as many wide-spaced as dense panels" stands for the shading limit; it is a game simplification, not the real measure.
+**Please check:** the 2026 framework (expert panel of 15 April 2026: legal basis moved to the 農山漁村再エネ法, shading under 30% in principle, rice, wheat and soybeans recommended) is known only from secondary sources. Its start date, April 2027, comes from the project owner (10 November 2026): add the official notice as a source once it is published, and confirm the final shading value (30%). The permit periods ("3 or 10 years") are still left out because I could not confirm the current wording. In the game, "at least as many wide-spaced as dense panels" stands for the shading limit; it is a game simplification, not the real measure.
 
 ---
 
