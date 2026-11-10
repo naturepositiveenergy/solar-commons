@@ -1,4 +1,4 @@
-// Solar Commons: game rules engine (design document v1.0)
+// Solar Commons: game rules engine (design document v1.1)
 //
 // This file is the referee of the game. It knows every rule and number,
 // but it never draws anything on screen and contains no texts. Messages for
@@ -11,7 +11,7 @@
 (function (root) {
 'use strict';
 
-// ===== Numbers (design document v1.0) =====
+// ===== Numbers (design document v1.1) =====
 // All rule numbers in one place. The simulator can override them for testing.
 const DEFAULT_PARAMS = {
   // Game
@@ -55,7 +55,13 @@ const DEFAULT_PARAMS = {
 
   // Community (section 5)
   genuineGain: 10, visitGain: 20, tourGain: 15,
-  fundGain: 15, fundShare: 0.2,
+  fundGain: 15, fundShare: 0.2,     // citizen fund, at most: support gain, and share of the build cost locals pay
+  // Citizen funds (section 5, changed in v1.1): how much locals invest depends on the project's acceptance
+  // and on the developer's reputation; the subscription closes at the end of the turn.
+  fundReturn: 1.25,        // investors receive this times their share of the revenue (20% of the cost: 25% of the income)
+  fundMin: 0.05,           // a fund that would raise less than this share of the cost fails
+  fundAFloor: 30, fundARange: 30,   // acceptance: nobody invests at 30 or below, everyone from 60
+  fundRFloor: 10, fundRRange: 20,   // reputation: nobody invests at 10 or below, everyone from 30
   benefitGain: 10, benefitCost: 1,
   silenceDrift: 3,         // support lost per turn of silence during permitting
   matchBonus: 15,          // design matching bonus
@@ -85,6 +91,8 @@ const DEFAULT_PARAMS = {
   // Trust and the 条例 (section 7)
   strikeLimit: 2,          // strikes until a 条例 is enacted
   warningSpread: 5,        // trust lost in the other town for each regional warning (word travels, added in v1.0)
+  repWarning: 5,           // reputation lost for each regional warning caused by your projects (added in v1.1)
+  repSell: 10,             // reputation lost for each park you sell (added in v1.1)
   trustOrdinance: 30,      // 条例 also if trust falls below
   ordinanceTurns: 2, ordinanceA: 60,
   rivalTrust: 5,
@@ -120,7 +128,7 @@ const STATUSES = ['design', 'permitting', 'approved', 'building', 'operating', '
 const MANAGEMENT = ['none', 'mowing', 'grazing'];
 // Version of the rules. Change it together with docs/design.md: saved games made
 // with other rules are not continued, because they would play differently.
-const RULES_VERSION = 'v1.0';
+const RULES_VERSION = 'v1.1';
 
 // ===== Helpers =====
 // Random numbers from a seed: the same seed always gives the same numbers.
@@ -338,7 +346,7 @@ function startProject(g, siteIdx, design) {
   const p = {
     id: g.nextId++, site: site.type, town: site.town, promo: site.promo, promoActive: false, design: normalizeDesign(design), calc,
     S: S.map(s => clamp(s, -100, 100)), status: 'design', genuineBefore: false, genuineAny: false,
-    fund: false, benefit: false, objections: 0, engaged: false, damaged: false, struck: false,
+    fund: false, fundOpen: false, fundShare: 0, benefit: false, objections: 0, engaged: false, damaged: false, struck: false,
     support: null, farmingFails: 0, lastReport: null, permitLeft: 0, buildLeft: 0, planningPaid: 0, B: calc.mod, finalA: null, sellTimer: 0, waitLogged: false
   };
   g.projects.push(p);
@@ -380,6 +388,7 @@ function checkAction(g, p, a) {
   if (!['design', 'permitting', 'approved'].includes(p.status)) return { ok: false, msg: msg('err.engageStatus') };
   if (g.ap < A.ap) return { ok: false, msg: msg('err.needAP', { need: A.ap, left: g.ap }) };
   if (a === 'fund' && p.fund) return { ok: false, msg: msg('err.fundDone') };
+  if (a === 'fund' && p.fundOpen) return { ok: false, msg: msg('err.fundOpen') };
   if (a === 'benefit' && p.benefit) return { ok: false, msg: msg('err.benefitDone') };
   return { ok: true };
 }
@@ -393,14 +402,42 @@ function doAction(g, p, a) {
   if (a === 'genuine') { shiftAll(p, P.genuineGain); p.genuineAny = true; if (p.status === 'design') p.genuineBefore = true; }
   if (a === 'visit') { const i = visitTarget(p, P); p.S[i] = clamp(p.S[i] + P.visitGain, -100, 100); }
   if (a === 'tour') { p.S[1] = clamp(p.S[1] + P.tourGain, -100, 100); p.S[3] = clamp(p.S[3] + P.tourGain, -100, 100); }
-  if (a === 'fund') { shiftAll(p, P.fundGain); p.fund = true; }
+  if (a === 'fund') p.fundOpen = true;   // the subscription closes at the end of the turn (closeFunds)
   if (a === 'benefit') { shiftAll(p, P.benefitGain); p.benefit = true; }
   return { ok: true };
 }
 
+// ===== Citizen funds (section 5, changed in v1.1) =====
+// How many locals would invest now, from 0 (nobody) to 1 (everyone): it depends on the project's
+// acceptance (do they trust the project?) and on your reputation (do they trust you?).
+function fundUptake(g, p) {
+  const P = g.P;
+  const a = clamp((acceptance(p, P) - P.fundAFloor) / P.fundARange, 0, 1);
+  const r = clamp((g.R - P.fundRFloor) / P.fundRRange, 0, 1);
+  return a * r;
+}
+// What a citizen fund would raise if its subscription closed now: { share, ret, gain, ok }
+// (share of the build cost locals pay, share of the income they receive, support gain, enough to succeed).
+function fundPreview(g, p) {
+  const P = g.P, u = fundUptake(g, p), share = P.fundShare * u;
+  return { share, ret: share * P.fundReturn, gain: P.fundGain * u, ok: share >= P.fundMin };
+}
+// At the end of the turn, open subscriptions close: locals invest, or the fund fails (it can be tried again).
+function closeFunds(g) {
+  g.projects.filter(p => p.fundOpen).forEach(p => {
+    p.fundOpen = false;
+    if (!['design', 'permitting', 'approved'].includes(p.status)) return;   // the project ended this turn
+    const f = fundPreview(g, p);
+    if (!f.ok) { log(g, 'log.fundFailed', { id: p.id }); return; }
+    p.fund = true; p.fundShare = f.share;
+    shiftAll(p, f.gain);
+    log(g, 'log.fundClosed', { id: p.id, share: f.share * 100, ret: f.ret * 100, gain: f.gain });
+  });
+}
+
 // ===== Money =====
 // The player's share of the build cost (a citizen fund pays part of it).
-function playerCost(p, P) { return p.calc.cost * (p.fund ? 1 - P.fundShare : 1); }
+function playerCost(p, P) { return p.calc.cost * (p.fund ? 1 - p.fundShare : 1); }
 // Planning cost, paid at submission and lost on cancellation (section 8).
 function planningCost(p, P) { return playerCost(p, P) * P.planningShare; }
 // Still to pay when construction starts.
@@ -409,11 +446,11 @@ function buildPayment(p, P) { return playerCost(p, P) - p.planningPaid; }
 function salePrice(p, P) { return p.calc.cost * P.sellMult; }
 // Net revenue of a park for a given gross revenue (section 8).
 function netRevenue(p, P, gross) {
-  return gross - p.calc.mgmtCost - (p.fund ? gross * P.fundShare : 0) - gross * P.decomShare;
+  return gross - p.calc.mgmtCost - (p.fund ? gross * p.fundShare * P.fundReturn : 0) - gross * P.decomShare;
 }
 // Expected income per turn of a park without random effects (average price factor, no curtailment),
 // after management, citizen fund share, decommissioning reserve and benefit agreement.
-// Also works for a planned design: { calc, promo, fund, benefit }.
+// Also works for a planned design: { calc, promo, fund, fundShare, benefit }.
 function expectedIncome(g, p) {
   const P = g.P;
   const [lo, hi] = priceRange(P, supportScheme(g, p));
@@ -431,7 +468,7 @@ function schemeAt(g, p, promoActive) {
   return p.calc.cap >= P.fipThreshold ? 'fip' : 'fit';
 }
 // The scheme of a submitted project, or the one it would get if it were submitted now.
-// Also works for a planned design: { calc, promo, fund, benefit }.
+// Also works for a planned design: { calc, promo, fund, fundShare, benefit }.
 function supportScheme(g, p) { return p.support || schemeAt(g, p, promoQualifies(p)); }
 // Revenue factor range of a scheme: each turn, revenue is multiplied by a random factor in this range.
 function priceRange(P, scheme) {
@@ -558,15 +595,19 @@ function sell(g, p) {
   if (p.status !== 'operating') return { ok: false, msg: msg('err.sellStatus') };
   const price = salePrice(p, g.P);
   g.money += price; p.status = 'sold'; p.sellTimer = 2;
-  log(g, 'log.sold', { id: p.id, price });
+  g.R = clamp(g.R - g.P.repSell, 0, 100);   // selling a park looks like speculation (v1.1)
+  log(g, 'log.sold', { id: p.id, price, rep: g.P.repSell });
   return { ok: true };
 }
 
 // ===== Strikes, 条例 and cancellation (each town has its own, section 7) =====
-function strike(g, town, reason) {
+// own = false: the warning was caused by someone else (a rival developer), so your reputation does not suffer.
+function strike(g, town, reason, own = true) {
   const tw = g.towns[town];
   tw.strikes++;
-  log(g, town === HOME ? 'log.strike' : 'log.strikeNeighbour', { reason, strikes: tw.strikes });
+  if (own) g.R = clamp(g.R - g.P.repWarning, 0, 100);   // investors hear about it too (v1.1)
+  if (!own) log(g, 'log.strikeRival', { reason, strikes: tw.strikes });
+  else log(g, town === HOME ? 'log.strike' : 'log.strikeNeighbour', { reason, strikes: tw.strikes, rep: g.P.repWarning });
   // word travels: the other town hears about it and trusts you less
   g.towns.forEach((other, i) => {
     if (i === town) return;
@@ -638,7 +679,7 @@ function rollEvent(g) {
     log(g, 'log.policyChange', { factor: f });
   } else if (ev === 5) {
     // the rival developer builds in the home town
-    g.towns[HOME].T -= P.rivalTrust; log(g, 'log.rival', { trust: P.rivalTrust }); strike(g, HOME, msg('strike.rival'));
+    g.towns[HOME].T -= P.rivalTrust; log(g, 'log.rival', { trust: P.rivalTrust }); strike(g, HOME, msg('strike.rival'), false);
   } else if (ev === 6) {
     g.projects.filter(p => p.status === 'design' || p.status === 'permitting').forEach(p => {
       const A = acceptance(p, P); shiftAll(p, A >= 50 ? P.mediaShift : -P.mediaShift);
@@ -654,6 +695,7 @@ function rollEvent(g) {
 function endTurn(g) {
   if (g.over) return;
   const P = g.P;
+  closeFunds(g);
   rollEvent(g);
   const yearEnd = calendar(g).quarter === 4;   // the yearly farming reports are due
   g.projects.forEach(p => {
@@ -773,7 +815,7 @@ const api = {
   // questions the screens can ask (they never change the game)
   calcDesign, designProblem, countsFromMap, normalizeDesign, mapPlacement,
   wishesMet, effS, matches, acceptance, checkAction, visitTarget,
-  playerCost, planningCost, buildPayment, salePrice, expectedIncome, supportScheme, priceRange, calendar,
+  fundUptake, fundPreview, playerCost, planningCost, buildPayment, salePrice, expectedIncome, supportScheme, priceRange, calendar,
   cropLight, thinPreview,
   promoQualifies, sitePermitTurns, submitPreview, objectionChance, objectionPreview, neighbourOpen,
   // scoring

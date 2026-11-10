@@ -36,7 +36,7 @@
     { id: 'decommission', source: 'https://www.meti.go.jp/shingikai/enecho/shoene_shinene/shin_energy/taiyoko_haikihiyo_wg/pdf/005_00_02.pdf',
       found: g => g.projects.some(operated) },
     { id: 'fund', source: 'https://www.env.go.jp/policy/kihon_keikaku/goodlifeaward/report/201703_02/',
-      found: g => g.projects.some(p => p.fund) },
+      found: g => g.projects.some(p => p.fund || p.fundOpen) },
     { id: 'natureSite', source: 'https://www.env.go.jp/content/000384044.pdf',
       found: g => g.projects.some(p => operated(p) && p.B >= g.P.rareB) }
   ];

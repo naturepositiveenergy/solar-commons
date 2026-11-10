@@ -86,7 +86,7 @@ Pick three or four. The policy notebook entry in brackets has the real-world bac
 **The community**
 - Which residents were hardest to win over, and what worked?
 - What changed when you held a genuine 説明会 instead of only the formal one required by law? (*Resident briefing (説明会)*)
-- Did anyone use a citizen fund? What does it change if local people own part of the park? (*Citizen funds (市民出資)*)
+- Did anyone use a citizen fund? What does it change if local people own part of the park? Why did some groups' funds raise less, or fail? (*Citizen funds (市民出資)*)
 
 **Nature and design**
 - Which nature measures did you use? Why does it matter where hedges and corridors are placed, not just how many? (*Nature-coexistence sites (自然共生サイト)*)
@@ -133,4 +133,4 @@ More technical help, including installing the game as an app: [publishing.md](pu
 
 - The game simplifies on purpose: its numbers are game values, not real costs, yields or permit times.
 - The policy notebook describes real Japanese policies as of its last review (see [policy-notebook.md](policy-notebook.md)). Policies change. For example, the government has decided to end FIT and FIP support for new ground-mounted solar projects of 10 kW and more from fiscal year 2027, while exceptions (for example for projects in promotion zones) were still being discussed in autumn 2026. Since rules v0.8, the game reflects this: projects submitted from turn 5 (fiscal year 2027) sell at market prices, unless they get the promotion zone bonus. If the final decision on exceptions (expected around January 2027) differs, the game will be updated.
-- The recommended scenario codes above are for the current version of the game (rules v1.0). If the rules change, they may play differently, and this guide will be updated.
+- The recommended scenario codes above are for the current version of the game (rules v1.1). If the rules change, they may play differently, and this guide will be updated.

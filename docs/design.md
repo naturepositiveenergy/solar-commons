@@ -1,6 +1,8 @@
 # Solar Commons (working title)
 
-**Game Design Document v1.0** | Christian Doedt | Draft for discussion
+**Game Design Document v1.1** | Christian Doedt | Draft for discussion
+
+*Changes in v1.1: realistic citizen funds and a role for reputation. A citizen fund's subscription closes at the end of the turn; how much locals invest depends on the project's acceptance and on the developer's reputation; investors receive a return slightly above their share. Reputation falls with each regional warning caused by the player's projects and with each park sold (sections 3, 5, 7, 8 and 11). The balance of the three strategies is unchanged.*
 
 *Changes in v1.0: a neighbouring town. From turn 9 (April 2028), a neighbouring town also offers sites; its trust in the player starts at the home town's trust. Each town has its own trust, warnings and 条例, and each regional warning also costs 5 trust in the other town ("word travels"). The reputation thresholds of earlier versions (new towns at R ≥ 50, 70, 90) are dropped: they were hardly ever reached within 20 turns (sections 1, 2, 3, 5, 7, 8, 9, 10, 11 and 12).*
 
@@ -52,7 +54,7 @@ One turn = one quarter. A scenario lasts 20 turns (5 years): fiscal years 2026 t
 | Trust (T) | 0 to 100 | 50 | Per town, long-term memory. The neighbouring town (from turn 9) starts at the home town's trust |
 | Acceptance (A) | 0 to 100 | = T | Per project |
 | Biodiversity (B) | 0 to 100 | 0 | Per park, grows during operation |
-| Reputation (R) | 0 to 100 | 30 | Global; shown to the player, little effect on play (section 8) |
+| Reputation (R) | 0 to 100 | 30 | Global: how investors and the wider region see the developer. Decides, with acceptance, how much locals invest in citizen funds (section 5) |
 
 ## 4. Site types
 
@@ -96,9 +98,16 @@ Each site has a 20% chance of lying in a promotion zone (促進区域). If, at s
 - 説明会, genuine dialogue (1 AP): +10 S for all, −1 permit turn if held before submission
 - Individual visit (1 AP): +20 S for the least supportive resident
 - Site tour with nature expert (1 AP): +15 S for nature group and elderly
-- Citizen fund (2 AP, once): +15 S for all; locals finance 20% of costs and receive 20% of revenue
+- Citizen fund (2 AP): opens a subscription that closes at the end of the turn (see "Citizen funds" below)
 - Benefit agreement (1 AP, once): +10 S for all, costs 1 per turn
 - Silence during permitting (no action on that project in a turn): all S −3
+
+**Citizen funds (changed in v1.1):** launching a fund (2 AP) opens a subscription for local investors. It closes at the end of the turn; only then does the fund count (for the cost, the promotion zone bonus, the young family's wish and the local benefit score).
+
+- **Uptake** = acceptance factor × reputation factor, each from 0 to 1, taken when the subscription closes: acceptance factor = (A − 30) / 30, reputation factor = (R − 10) / 20 (so everyone invests from A 60 and R 30; nobody at A 30 or R 10 and below).
+- **Locals pay** 20% × uptake of the build cost and receive 1.25 times that share of the revenue (for example 20% of the cost for 25% of the income). All S +15 × uptake.
+- **Failure:** below 5% of the cost, the fund fails: no money, no S gain. It can be launched again later.
+- Funds can be launched until construction starts. In the simulator, careful players wait for their fund to close before submitting.
 
 **Design matching** (permanent +15 S for that resident)
 
@@ -150,7 +159,7 @@ This strategy is deliberately attractive in the short term.
 - Cheap build: cost −30%, no drainage (except forest, where it is legally required). Damage ×2, landslide events possible on slopes
 - Dense layout: maximum capacity and revenue
 - Formal-only engagement: saves AP
-- Sell project (転売): after operation starts, sell for 1.5 × build cost. Immediate cash, but the new owner neglects the park (T −5 two turns later, B stops growing)
+- Sell project (転売): after operation starts, sell for 1.5 × build cost. Immediate cash, but the new owner neglects the park (T −5 two turns later, B stops growing), and the sale costs reputation (R −10, v1.1)
 
 **Delayed consequences**
 
@@ -158,6 +167,7 @@ This strategy is deliberately attractive in the short term.
 - At 2 strikes, or if T falls below 30, the town enacts a 条例: permit time +2, 自治会 consent required at the end of permitting (A ≥ 60, otherwise counts as an objection and delays one turn), forest sites banned
 - The 条例 applies to all future projects in that town, including good ones
 - Strikes and 条例 are counted per town (v1.0): a strike falls on the town of the project that caused it; the rival developer's bad project falls on the home town
+- **Reputation (v1.1):** each strike caused by the player's projects also costs R −5 (the rival developer's strikes do not), so careless play makes later citizen funds fail or raise less
 - **Word travels (v1.0):** once the neighbouring town has joined, each strike in one town also costs 5 trust in the other town. Without this rule, a careless developer could simply move on: in the simulator, fast-and-cheap players then lost only 22% of games instead of about 60%
 
 ## 8. Formulas
@@ -168,10 +178,11 @@ This strategy is deliberately attractive in the short term.
 - **Objection probability per permitting turn:** P_obj = 0.25 × ((100 − A) / 100) × site risk
 - **Objection effect:** delay +1 turn, all S −5. Three objections, or A below 20, cancels the project (T −8, one strike)
 - **Biodiversity target:** B_target = min(100, tile and management points + 5 × (distinct measure types − 1)) + site modifier. Wide panels, each nature tile type, and management each count as one measure type. Corridor tiles count only when connected (section 5). During operation, B grows by 20% of the remaining gap per turn
-- **Revenue per turn:** capacity × 0.6 × policy factor × price factor × curtailment − management cost − citizen fund share − decommissioning reserve. Price factor: FIT 1; FIP random 0.8 to 1.2; market prices random 0.5 to 1.1 (section 6)
+- **Revenue per turn:** capacity × 0.6 × policy factor × price factor × curtailment − management cost − citizen fund investors' share − decommissioning reserve. Price factor: FIT 1; FIP random 0.8 to 1.2; market prices random 0.5 to 1.1 (section 6)
 - **Trust update at start of operation:** ΔT = (A − 50) / 5 + B_target / 20 (uses the planned target, since actual B is still near zero at that point)
 - **Trust update at start of operation** and all other trust changes apply to the town of the project concerned
-- **Reputation:** +T / 10 (trust of the park's town) when a park starts operating; +10 for a rare species sighting. Reputation no longer unlocks towns (v1.0)
+- **Reputation:** +T / 10 (trust of the park's town) when a park starts operating; +10 for a rare species sighting; −5 for each strike caused by the player's projects; −10 for each park sold (v1.1). Reputation no longer unlocks towns (v1.0)
+- **Citizen fund:** uptake u = clamp((A − 30) / 30, 0, 1) × clamp((R − 10) / 20, 0, 1) when the subscription closes; locals pay 20% × u of the build cost and receive 1.25 × that share of gross revenue; all S +15 × u; the fund fails if 20% × u is below 5%
 
 ## 9. Events (25% chance per turn, one of eight)
 
@@ -208,17 +219,19 @@ Grade D is given regardless of score if built capacity (including sold parks, bu
 
 **Lose conditions:** money below 0 for 2 consecutive turns, or trust below 5 in the home town. (In the neighbouring town, trust below 5 only closes it to new projects.)
 
-## 11. Balance status (simulator, 1,000 games per strategy, v1.0)
+## 11. Balance status (simulator, 1,000 games per strategy, v1.1)
 
 | | Careful | Balanced | Fast and cheap |
 |---|---|---|---|
-| Final cash | ~53 | ~71 | ~113 |
-| Net worth (cash + own share of operating parks) | ~183 | ~201 | ~118 |
+| Final cash | ~59 | ~71 | ~113 |
+| Net worth (cash + own share of operating parks) | ~181 | ~201 | ~118 |
+| Parks built per game | ~2.0 | ~2.0 | ~1.8 |
 | 条例 enacted (home town) | ~13% | ~13% | ~99% |
 | 条例 enacted (neighbouring town) | 0% | 0% | ~83% |
-| Neighbouring town's trust: at turn 9 → at the end | ~58 → ~57 | ~54 → ~52 | ~44 → ~18 |
+| Neighbouring town's trust: at turn 9 → at the end | ~58 → ~56 | ~54 → ~52 | ~44 → ~18 |
 | Games lost | 0% | 0% | ~54% |
-| Average park score (0 to 14) | 13.6 | 11.1 | 1.9 |
+| Average park score (0 to 14) | 13.7 | 11.1 | 1.9 |
+| Final reputation | ~45 | ~41 | ~2 |
 | Typical grade | S | A | D |
 | Parks selling at market prices (v0.9) | ~13% | ~5% | ~4% |
 
@@ -226,7 +239,7 @@ All eight intended-outcome checks pass. Careful costs some money but gives the b
 
 **Effect of the end of FIT/FIP (v0.8):** the numbers above are almost the same as in v0.7, because most parks that sell at market prices are submitted later and start operating near the end of the scenario. The rule works mainly through decisions and what players see: submit in the first year to secure FIT/FIP, or take more time for dialogue; promotion zones become more valuable; later parks earn less and less predictably. The simulator's computer players do not react to the deadline.
 
-**Ideas for the prototype stage (realism, values to be checked against real cases):** citizen fund uptake depends on acceptance, a one-turn subscription period, and an investor return slightly above the financing share.
+**Effect of citizen funds and reputation (v1.1):** careful players' funds always succeed and raise almost the full 20% (19.9% on average). Because they now wait one turn for the fund to close before submitting, they build about 2.0 parks instead of 2.4, still reaching the capacity goal in every game, and their score rises slightly (13.6 to 13.7). Balanced and fast-and-cheap players do not use citizen funds and are unaffected. A test player who plays fast-and-cheap until its first park runs and carefully afterwards shows the lesson: half of its citizen funds fail, and the others raise 12% of the cost on average; its average park score falls from 4.2 to 3.7. The values (return, thresholds) are game values, to be checked against real cases.
 
 **Effect of the yearly farming report (v0.9):** none of the three strategies is affected: careful and balanced players use at least as many wide-spaced as dense panels on agrivoltaics sites, and fast-and-cheap players never build there. A test player who fills agrivoltaics sites with dense panels gets guidance for almost all of these parks. If it ignores the guidance, about half of these parks are removed (in about 60% of its games): its average park score falls from 8.3 to 7.4, built capacity from ~45 to ~28, and grade D rises from 2% to 17% of games. If it thins out after guidance, no park is removed, thinning keeps about 85% of a park's capacity, and its average park score rises to 8.7, but it ends with less money (~87 instead of ~111).
 

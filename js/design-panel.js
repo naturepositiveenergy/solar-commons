@@ -53,7 +53,7 @@
   function openNew(siteIndex) {
     const g = SC.session.game, site = g && g.sites[siteIndex];
     if (!site) return;
-    ctx = { mode: 'new', siteIndex, site: site.type, town: site.town, promo: site.promo, fund: false, benefit: false,
+    ctx = { mode: 'new', siteIndex, site: site.type, town: site.town, promo: site.promo, fund: false, fundShare: 0, benefit: false,
       design: { ...lastDesign }, returnKey: 'plan-' + siteIndex };
     open();
   }
@@ -61,7 +61,7 @@
   function openChange(id) {
     const g = SC.session.game, p = g && g.projects.find(x => x.id === id);
     if (!p || p.status !== 'design') return;
-    ctx = { mode: 'change', id, site: p.site, promo: p.promo, fund: p.fund, benefit: p.benefit,
+    ctx = { mode: 'change', id, site: p.site, promo: p.promo, fund: p.fund, fundShare: p.fundShare, benefit: p.benefit,
       design: withMap(p.design), returnKey: 'redesign-' + id };
     open();
   }
@@ -121,7 +121,7 @@
     const g = SC.session.game, P = g.P, d = ctx.design;
     const calc = E.calcDesign(d, ctx.site, P);
     const problem = E.designProblem(calc, P);
-    const planned = { site: ctx.site, promo: ctx.promo, design: d, calc, fund: ctx.fund, benefit: ctx.benefit, genuineBefore: false };
+    const planned = { site: ctx.site, promo: ctx.promo, design: d, calc, fund: ctx.fund, fundShare: ctx.fundShare, benefit: ctx.benefit, genuineBefore: false };
     const cost = E.playerCost(planned, P);
 
     const item = (label, value, mood) => `<div${mood ? ` class="is-${mood}"` : ''}><dt>${esc(label)}</dt><dd>${value}</dd></div>`;

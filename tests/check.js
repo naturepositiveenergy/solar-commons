@@ -155,7 +155,7 @@ if (failures === beforeMap) console.log('  ✓ corridors and hedges follow the p
 // row are removed.
 console.log('Preview check');
 const beforePreview = failures;
-let previews = 0, marketSubmissions = 0, keptByPromo = 0, thins = 0, guidance = 0, removals = 0;
+let previews = 0, marketSubmissions = 0, keptByPromo = 0, thins = 0, guidance = 0, removals = 0, fundsRaised = 0, fundsFailed = 0;
 try {
   for (let i = 0; i < 300; i++) {
     const P = E.defaultParams();
@@ -206,7 +206,16 @@ try {
         }
       }
       const wasOperating = g.projects.filter(p => p.status === 'operating').map(p => p.id);
+      // citizen funds: what the card shows for an open subscription is what the fund then raises
+      const fundPreviews = g.projects.filter(p => p.fundOpen && ['design', 'permitting', 'approved'].includes(p.status))
+        .map(p => ({ p, pre: E.fundPreview(g, p) }));
       E.endTurn(g);
+      fundPreviews.forEach(({ p, pre }) => {
+        if (pre.ok) fundsRaised++; else fundsFailed++;
+        if (p.fund !== pre.ok || (pre.ok && Math.abs(p.fundShare - pre.share) > 1e-12) || p.fundOpen) {
+          fail(`citizen fund preview differs (seed ${seedOf(i)}, project ${p.id}): preview ${JSON.stringify(pre)}; actual fund ${p.fund}, share ${p.fundShare}`);
+        }
+      });
       g.projects.filter(p => p.status === 'removed' && wasOperating.includes(p.id)).forEach(p => {
         removals++;
         if (p.site !== 'agri' || p.farmingFails < P.farmingFailLimit) fail(`project ${p.id} was removed without ${P.farmingFailLimit} poor farming reports in a row (seed ${seedOf(i)})`);
@@ -226,6 +235,8 @@ if (failures === beforePreview) {
   if (!marketSubmissions || !keptByPromo) fail('the test player never reached both cases of the end of FIT/FIP');
   console.log(`  ✓ farming reports: ${guidance} guidance, ${thins} thinnings as previewed, ${removals} parks removed after poor reports in a row`);
   if (!guidance || !thins || !removals) fail('the test player never reached all cases of the yearly farming report');
+  console.log(`  ✓ citizen funds: ${fundsRaised} raised and ${fundsFailed} failed, each as the card showed before the turn ended`);
+  if (!fundsRaised || !fundsFailed) fail('the test player never reached both cases of a citizen fund');
 }
 
 // ---------- 4. Save check ----------
@@ -464,9 +475,9 @@ function playScenario(code, r) {
   } else if (!g.lost || g.turn > P.neighbourTurn) fail(`code ${code}: the neighbouring town never joined`);
   // word travels: after it has joined, each warning is followed by the trust loss in the other town
   g.log.forEach((l, i) => {
-    if (l.turn < P.neighbourTurn || !['log.strike', 'log.strikeNeighbour'].includes(l.msg.key)) return;
+    if (l.turn < P.neighbourTurn || !['log.strike', 'log.strikeNeighbour', 'log.strikeRival'].includes(l.msg.key)) return;
     wordsChecked++;
-    const next = g.log[i + 1], want = l.msg.key === 'log.strike' ? 'log.wordNeighbour' : 'log.wordHome';
+    const next = g.log[i + 1], want = l.msg.key === 'log.strikeNeighbour' ? 'log.wordHome' : 'log.wordNeighbour';
     if (!next || next.msg.key !== want || next.msg.vars.trust !== P.warningSpread) fail(`code ${code}, turn ${l.turn}: a warning did not travel to the other town`);
   });
   return turns;

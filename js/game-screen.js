@@ -24,10 +24,10 @@
   const SUPPORT_MATTERS = ['design', 'permitting', 'approved', 'building'];
 
   // How log messages are marked in the turn report and the log
-  const GOOD = ['log.approved', 'log.constructionStarted', 'log.operating', 'log.rareFound', 'log.farmingOk'];
+  const GOOD = ['log.approved', 'log.constructionStarted', 'log.operating', 'log.rareFound', 'log.farmingOk', 'log.fundClosed'];
   const BAD = ['log.objection', 'log.cancelled', 'log.strike', 'log.ordinance', 'log.consentRefused',
     'log.neglected', 'log.lostMoney', 'log.lostTrust', 'log.rival', 'log.farmingGuidance', 'log.farmingRemoved',
-    'log.strikeNeighbour', 'log.ordinanceNeighbour', 'log.wordHome', 'log.wordNeighbour'];
+    'log.strikeNeighbour', 'log.ordinanceNeighbour', 'log.wordHome', 'log.wordNeighbour', 'log.strikeRival', 'log.fundFailed'];
   const EVENT = ['log.typhoon', 'log.heavyRain', 'log.gridDelay', 'log.gridDelayNone', 'log.curtailment',
     'log.policyChange', 'log.media', 'log.rareNone', 'log.supportEnded', 'log.neighbourJoined'];
   const moodOf = key => (GOOD.includes(key) ? 'is-good' : BAD.includes(key) ? 'is-bad' : EVENT.includes(key) ? 'is-event' : '');
@@ -35,7 +35,7 @@
   // The engine writes a regional warning (and what the other town hears of it) just before the
   // event that caused it (for example a warning, then "Typhoon"). For reading, put the event first.
   const CAUSES = [...EVENT, 'log.rival', 'log.rareFound'];
-  const WARNINGS = ['log.strike', 'log.strikeNeighbour', 'log.wordHome', 'log.wordNeighbour'];
+  const WARNINGS = ['log.strike', 'log.strikeNeighbour', 'log.strikeRival', 'log.wordHome', 'log.wordNeighbour'];
   function readingOrder(msgs) {
     const out = [];
     msgs.forEach(m => {
@@ -75,7 +75,8 @@
   const SITE_ENTRY = { farmland: 'farmland', agri: 'agri', forest: 'forest' };
   const LOG_ENTRY = { 'log.gridDelay': 'grid', 'log.gridDelayNone': 'grid', 'log.curtailment': 'grid',
     'log.ordinance': 'ordinance', 'log.ordinanceNeighbour': 'ordinance', 'log.rareFound': 'natureSite', 'log.supportEnded': 'fitfip',
-    'log.farmingOk': 'agri', 'log.farmingGuidance': 'agri', 'log.farmingRemoved': 'agri', 'log.thinned': 'agri' };
+    'log.farmingOk': 'agri', 'log.farmingGuidance': 'agri', 'log.farmingRemoved': 'agri', 'log.thinned': 'agri',
+    'log.fundClosed': 'fund', 'log.fundFailed': 'fund' };
   const logLine = m => `<li class="${moodOf(m.key)}">${esc(t(m))}${LOG_ENTRY[m.key] ? ' ' + info(LOG_ENTRY[m.key]) : ''}</li>`;
 
   function statusHtml(g) {
@@ -90,7 +91,7 @@
       home(g).strikes ? `<span class="flag is-warn">${esc(t('status.warnings', { count: home(g).strikes }))}</span>` : '',
       nb && nb.ordinance ? `<span class="flag is-bad">${esc(t('status.ordinanceNeighbour'))}</span>${info('ordinance')}` : '',
       nb && nb.strikes ? `<span class="flag is-warn">${esc(t('status.warningsNeighbour', { count: nb.strikes }))}</span>` : '',
-      `<span class="flag">${esc(t('stat.reputation', { rep: g.R }))}</span>`,
+      `<span class="flag">${esc(t('stat.reputation', { rep: g.R }))}</span>${info('fund')}`,
       `<span class="flag flag-code">${esc(t('game.code', { code: g.seed }))}</span>`
     ].join('');
     return `
@@ -191,7 +192,7 @@
     if (ENDED.includes(p.status)) {
       return `<article class="card project-card is-ended">${head}${top(`<p class="state-line">${esc(t(ENDED_TEXT[p.status]))}</p>`)}</article>`;
     }
-    const lines = [...stateLines(g, p), ...farmingLines(g, p)].map(([text, mood, entry]) =>
+    const lines = [...stateLines(g, p), ...fundLines(g, p), ...farmingLines(g, p)].map(([text, mood, entry]) =>
       `<p class="state-line${mood ? ' is-' + mood : ''}">${esc(text)}${entry ? ' ' + info(entry) : ''}</p>`).join('');
     const support = SUPPORT_MATTERS.includes(p.status);
     const canTalk = !g.over && ['design', 'permitting', 'approved'].includes(p.status);
@@ -244,6 +245,16 @@
     return [];
   }
 
+  // Citizen fund: an open subscription, or what locals invested (design document section 5)
+  function fundLines(g, p) {
+    if (p.fundOpen) {
+      const f = E.fundPreview(g, p);
+      return [f.ok ? [t('project.fundOpen', { share: f.share * 100 }), '', 'fund'] : [t('project.fundOpenNone'), 'warn', 'fund']];
+    }
+    if (p.fund) return [[t('project.fundDone', { share: p.fundShare * 100, ret: p.fundShare * g.P.fundReturn * 100 }), '', 'fund']];
+    return [];
+  }
+
   // Agrivoltaics: light for the crops and the yearly farming report (design document section 6)
   function farmingLines(g, p) {
     if (p.site !== 'agri') return [];
@@ -291,7 +302,7 @@
       genuine: { gain: P.genuineGain },
       visit: { gain: P.visitGain, who: t('resident.' + E.RESIDENTS[E.visitTarget(p, P)]) },
       tour: { gain: P.tourGain },
-      fund: { gain: P.fundGain, share: P.fundShare * 100 },
+      fund: (f => ({ share: f.share * 100, ret: f.ret * 100, gain: f.gain, ok: f.ok }))(E.fundPreview(g, p)),
       benefit: { gain: P.benefitGain, cost: P.benefitCost }
     };
     const buttons = Object.keys(E.ACTIONS).map(a => {
@@ -300,7 +311,7 @@
         <button type="button" class="action-btn" data-act="engage" data-p="${p.id}" data-a="${a}" data-key="engage-${p.id}-${a}"${check.ok ? '' : ' disabled'}>
           <span class="action-name">${esc(t('action.' + a))}</span>
           <span class="action-ap">${esc(t('action.apCost', { ap: E.ACTIONS[a].ap }))}</span>
-          <span class="action-info">${esc(t('actionInfo.' + a, vars[a]))}</span>
+          <span class="action-info">${esc(t(a === 'fund' && !vars.fund.ok ? 'actionInfo.fundNone' : 'actionInfo.' + a, vars[a]))}</span>
           ${check.ok ? '' : `<span class="action-why">${esc(t(check.msg))}</span>`}
         </button>`;
     }).join('');
@@ -405,7 +416,7 @@
     const g = game(), p = g.projects.find(x => x.id === id);
     let texts;
     if (type === 'sell') {
-      texts = { title: t('confirm.sellTitle', { id }), text: t('confirm.sellText', { price: E.salePrice(p, g.P) }), ok: t('confirm.sellOk') };
+      texts = { title: t('confirm.sellTitle', { id }), text: t('confirm.sellText', { price: E.salePrice(p, g.P), rep: g.P.repSell }), ok: t('confirm.sellOk') };
     } else if (type === 'thin') {
       const pre = E.thinPreview(g, p);
       if (!pre) return;

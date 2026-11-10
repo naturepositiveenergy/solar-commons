@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Solar Commons balancing simulator</title>
 <!-- The fonts are stored in the project (fonts/, made by tools/make-fonts.js) -->
-<link rel="stylesheet" href="../fonts/fonts.css?v=m12">
+<link rel="stylesheet" href="../fonts/fonts.css?v=m13">
 <style>
 :root {
   --paper: #F4F7F2; --surface: #FFFFFF; --ink: #1F2A24; --muted: #59665D; --line: #D3DCD3;
@@ -94,7 +94,7 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 <div class="wrap">
 <header>
   <h1>Solar Commons balancing simulator</h1>
-  <p>Tests the numbers of design document v1.0, using the same rules engine as the game (js/engine.js). All values are placeholders for game balance, not real cost, yield or permitting data.</p>
+  <p>Tests the numbers of design document v1.1, using the same rules engine as the game (js/engine.js). All values are placeholders for game balance, not real cost, yield or permitting data.</p>
   <div class="strip" aria-hidden="true"><span style="background:var(--careful)"></span><span style="background:var(--balanced)"></span><span style="background:var(--pollen)"></span><span style="background:var(--fast)"></span></div>
 </header>
 <nav role="tablist">
@@ -127,20 +127,20 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 
 <section id="tab-params" hidden>
   <div class="row" style="margin-bottom:16px">
-    <button class="act" id="resetBtn">Reset to v1.0 values</button>
+    <button class="act" id="resetBtn">Reset to v1.1 values</button>
     <button class="act" id="exportBtn">Export as JSON</button>
     <button class="act" id="importBtn">Import JSON</button>
   </div>
-  <p class="muted" style="margin-top:0">Values differing from v1.0 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
+  <p class="muted" style="margin-top:0">Values differing from v1.1 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
   <div id="jsonBox" hidden><textarea id="jsonText" aria-label="Parameters as JSON"></textarea><p class="msg" id="jsonMsg"></p></div>
   <div id="paramForm"></div>
 </section>
 </div>
 
 <!-- Shared files: language system, English texts and the game rules (same engine as the game) -->
-<script src="../js/i18n.js?v=m12"></script>
-<script src="../lang/en.js?v=m12"></script>
-<script src="../js/engine.js?v=m12"></script>
+<script src="../js/i18n.js?v=m13"></script>
+<script src="../lang/en.js?v=m13"></script>
+<script src="../js/engine.js?v=m13"></script>
 <script>
 // Engine functions used by the simulator (the rules themselves are in js/engine.js)
 const {
@@ -219,6 +219,7 @@ function strategyTurn(g, key) {
   }
   // submit
   proj.filter(p => p.status === 'design').forEach(p => {
+    if (p.fundOpen) return;   // a careful player waits for the citizen fund to close
     if (key === 'fast' || p.genuineBefore || p.waitedDesign) submit(g, p);
     else p.waitedDesign = true;
   });
@@ -231,7 +232,7 @@ function runGame(P, key, seed) {
 }
 
 function batch(P, key, runs) {
-  const res = { worth: [], money: [], cap: [], capOp: [], T: [], B: [], cancel: [], ord: 0, lost: 0, grades: { S: 0, A: 0, B: 0, C: 0, D: 0 }, score: [], objections: [], moneyCurve: [], trustCurve: [], parks: 0, marketParks: 0, removed: 0, T2: [], ord2: 0, nParks: 0 };
+  const res = { worth: [], money: [], cap: [], capOp: [], T: [], B: [], cancel: [], ord: 0, lost: 0, grades: { S: 0, A: 0, B: 0, C: 0, D: 0 }, score: [], objections: [], moneyCurve: [], trustCurve: [], parks: 0, marketParks: 0, removed: 0, T2: [], ord2: 0, nParks: 0, R: [], fundsClosed: 0, fundsFailed: 0 };
   const turns = P.turns + 1;
   const mSum = new Array(turns).fill(0), tSum = new Array(turns).fill(0);
   for (let i = 0; i < runs; i++) {
@@ -240,7 +241,9 @@ function batch(P, key, runs) {
     res.money.push(g.money); res.cap.push(sc.capBuilt);
     res.worth.push(g.money + g.projects.filter(p => p.status === 'operating').reduce((s, p) => s + playerCost(p, P), 0));
     res.capOp.push(g.projects.filter(p => p.status === 'operating').reduce((s, p) => s + p.calc.cap, 0));
-    res.T.push(g.towns[0].T);
+    res.T.push(g.towns[0].T); res.R.push(g.R);
+    res.fundsClosed += g.log.filter(l => l.msg.key === 'log.fundClosed').length;
+    res.fundsFailed += g.log.filter(l => l.msg.key === 'log.fundFailed').length;
     if (g.towns[1]) { res.T2.push(g.towns[1].T); if (g.towns[1].ordinance) res.ord2++; }
     res.nParks += g.projects.filter(p => p.town === 1 && ['operating', 'sold', 'removed'].includes(p.status)).length;
     const parks = g.projects.filter(p => p.status === 'operating' || p.status === 'sold');
@@ -328,7 +331,13 @@ const PARAM_FORM = [
   ['Community', 'visitGain', 'Individual visit: S gain', 5],
   ['Community', 'tourGain', 'Site tour: S gain (nature, elderly)', 5],
   ['Community', 'fundGain', 'Citizen fund: S gain (all)', 5],
-  ['Community', 'fundShare', 'Citizen fund share of cost and revenue', 0.05],
+  ['Community', 'fundShare', 'Citizen fund: share of the cost, at most', 0.05],
+  ['Community', 'fundReturn', 'Citizen fund: investors\' income share (× cost share)', 0.05],
+  ['Community', 'fundMin', 'Citizen fund: fails below this cost share', 0.01],
+  ['Community', 'fundAFloor', 'Citizen fund: nobody invests at acceptance', 5],
+  ['Community', 'fundARange', 'Citizen fund: everyone invests from acceptance (floor +)', 5],
+  ['Community', 'fundRFloor', 'Citizen fund: nobody invests at reputation', 5],
+  ['Community', 'fundRRange', 'Citizen fund: everyone invests from reputation (floor +)', 5],
   ['Community', 'benefitGain', 'Benefit agreement: S gain (all)', 5],
   ['Community', 'benefitCost', 'Benefit agreement cost per turn', 0.5],
   ['Community', 'silenceDrift', 'Silence during permitting: S loss', 1],
@@ -363,6 +372,8 @@ const PARAM_FORM = [
   ['Operation', 'sellTrustPenalty', 'Trust loss 2 turns after sale', 1],
 
   ['Trust', 'warningSpread', 'Trust lost in the other town per warning', 1],
+  ['Trust', 'repWarning', 'Reputation lost per own warning', 1],
+  ['Trust', 'repSell', 'Reputation lost per park sold', 1],
   ['Trust', 'strikeLimit', 'Strikes until 条例', 1],
   ['Trust', 'trustOrdinance', '条例 if trust below', 5],
   ['Trust', 'ordinanceTurns', '条例 extra permit turns', 1],
@@ -391,13 +402,13 @@ let P = defaultParams();
 try { const s = localStorage.getItem('sc-params'); if (s) Object.assign(P, JSON.parse(s)); } catch (e) {}
 function saveParams() { try { localStorage.setItem('sc-params', JSON.stringify(P)); } catch (e) {} updateNote(); }
 function changedCount() { const d = defaultParams(); return Object.keys(d).filter(k => d[k] !== P[k]).length; }
-function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v1.0` : 'Using v1.0 values'; }
+function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v1.1` : 'Using v1.1 values'; }
 
 function renderParams() {
   const d = defaultParams(), groups = {};
   PARAM_FORM.forEach(x => { (groups[x[0]] = groups[x[0]] || []).push(x); });
   $('paramForm').innerHTML = Object.entries(groups).map(([g, list]) => `<fieldset><legend>${esc(g)}</legend><div class="pgrid">` +
-    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[3]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v1.0: ${d[x[1]]}"></label>`).join('') +
+    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[3]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v1.1: ${d[x[1]]}"></label>`).join('') +
     '</div></fieldset>').join('');
   $('paramForm').querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
     const v = parseFloat(inp.value); if (isNaN(v)) { inp.value = P[inp.dataset.k]; return; }
@@ -452,6 +463,8 @@ function runAll() {
     ['Capacity built', r => fmt(avg(r.cap))],
     ['Capacity still operating', r => fmt(avg(r.capOp))],
     ['Final trust (home town)', r => fmt(avg(r.T))],
+    ['Final reputation', r => fmt(avg(r.R))],
+    ['Citizen funds raised per game (failed)', r => `${fmt(r.fundsClosed / runs, 2)} (${fmt(r.fundsFailed / runs, 2)})`],
     ['Final trust (neighbouring town)', r => (r.T2.length ? fmt(avg(r.T2)) : '–')],
     ['Average biodiversity of parks', r => fmt(avg(r.B))],
     ['Cancellations per game', r => fmt(avg(r.cancel), 2)],
@@ -511,9 +524,9 @@ function projCard(p) {
     (p.site === 'agri' && p.lastReport ? `, last farming report ${p.lastReport === 'ok' ? 'good' : 'poor'}` : '');
   const d = p.design;
   const designTxt = TILE_KEYS.filter(k => d[k]).map(k => `${d[k]} ${k}`).join(', ') + `, ${d.mgmt}${d.cheap ? ', cheap build' : ''}`;
-  const btns = canEngage ? Object.entries(ACTIONS).map(([k, a]) => `<button class="act" data-a="${k}" data-p="${p.id}" ${G.ap < a.ap || (k === 'fund' && p.fund) || (k === 'benefit' && p.benefit) ? 'disabled' : ''}>${esc(t('action.' + k))} (${a.ap})</button>`).join('') : '';
+  const btns = canEngage ? Object.entries(ACTIONS).map(([k, a]) => `<button class="act" data-a="${k}" data-p="${p.id}" ${G.ap < a.ap || (k === 'fund' && (p.fund || p.fundOpen)) || (k === 'benefit' && p.benefit) ? 'disabled' : ''}>${esc(t('action.' + k))} (${a.ap})</button>`).join('') : '';
   return `<div class="card st-${p.status}"><h3>Project ${p.id}: ${esc(siteName(p.site))}${p.town ? '<span class="tag">neighbouring town</span>' : ''}${p.promo ? '<span class="tag">promotion zone</span>' : ''}</h3>
-    <p class="muted" style="margin:0 0 6px">${STATUS[p.status]}${info ? ', ' + info : ''}. Capacity ${fmt(p.calc.cap)}, cost ${fmt(p.calc.cost)}${p.fund ? ', citizen fund' : ''}${p.benefit ? ', benefit agreement' : ''}.</p>
+    <p class="muted" style="margin:0 0 6px">${STATUS[p.status]}${info ? ', ' + info : ''}. Capacity ${fmt(p.calc.cap)}, cost ${fmt(p.calc.cost)}${p.fund ? `, citizen fund ${fmt(100 * p.fundShare, 0)}%` : p.fundOpen ? ', citizen fund subscription open' : ''}${p.benefit ? ', benefit agreement' : ''}.</p>
     <p class="muted" style="margin:0 0 8px;font-size:0.85rem">${esc(designTxt)}</p>
     ${['cancelled', 'sold', 'removed'].includes(p.status) ? '' : `<p style="margin:0 0 4px"><b>Acceptance ${fmt(A, 0)}</b></p>${resBars(p)}`}
     <div class="row" style="margin-top:10px">${btns}

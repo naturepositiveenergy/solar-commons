@@ -1,6 +1,6 @@
 # Policy notebook: draft texts for review
 
-**Status: reviewed and approved on 6 November 2026; in the game since Milestone 4. The FIT/FIP and promotion zone entries were updated for rules v0.8 (approved on 6 November 2026), the agrivoltaics entry for rules v0.9 (approved on 10 November 2026).** Researched on 6 November 2026. When a policy changes, update the texts here and in the language files (`nb.<id>.…`), and the source link in `js/notebook.js`.
+**Status: reviewed and approved on 6 November 2026; in the game since Milestone 4. The FIT/FIP and promotion zone entries were updated for rules v0.8 (approved on 6 November 2026), the agrivoltaics entry for rules v0.9 (approved on 10 November 2026), the citizen funds entry for rules v1.1 (approved on 10 November 2026).** Researched on 6 November 2026. When a policy changes, update the texts here and in the language files (`nb.<id>.…`), and the source link in `js/notebook.js`.
 
 These texts will appear in the game's policy notebook (政策ノート), in Japanese and English. Each entry has:
 
@@ -221,21 +221,21 @@ After your review, the texts move into `lang/en.js` and `lang/ja.js`. This file 
 
 ## 10. Citizen funds — 市民出資 `fund` *(suggested addition)*
 
-**Unlocks when:** you set up a citizen fund.
+**Unlocks when:** you launch a citizen fund.
 
 **In the game**
-- EN: A citizen fund wins support from everyone: local people pay 20% of the cost and receive 20% of the revenue.
-- JA: 市民ファンドは全員の支持を高めます：地元の人が費用の20%を出資し、収入の20%を受け取ります。
+- EN: A citizen fund opens a subscription that closes at the end of the turn. How much local people invest depends on two kinds of trust: in the project (acceptance) and in you (reputation). With full trust, they pay 20% of the cost and receive 25% of the income, and everyone's support rises. With too little trust, the fund fails. Your reputation falls with every regional warning your projects cause and every park you sell.
+- JA: 市民ファンドは出資の募集を始め、そのターンの終わりに締め切ります。地元の人がどれだけ出資するかは、プロジェクトへの信頼（受容度）とあなたへの信頼（評判）の2つで決まります。信頼が十分なら、費用の20%を出資して収入の25%を受け取り、全員の支持が高まります。信頼が足りないと、ファンドは設立できません。評判は、あなたのプロジェクトが地域からの警告を招いたときや、発電所を売却したときに下がります。
 
 **In reality**
-- EN: Many community energy projects in Japan are financed by residents, often through investment schemes such as silent partnerships (匿名組合); in Ikoma (Nara), for example, a citizens' solar plant was financed entirely by local people. Local ownership keeps money in the region and can make projects easier to accept.
-- JA: 日本の地域エネルギー事業の多くは、住民の出資で資金を集めています。匿名組合などの仕組みが使われ、たとえば奈良県生駒市では、市民共同発電所を全額市民の出資でつくりました。地域に利益が残り、事業が受け入れられやすくなることがあります。
+- EN: Many community energy projects in Japan are financed by residents, often through investment schemes such as silent partnerships (匿名組合); in Ikoma (Nara), for example, a citizens' solar plant was financed entirely by local people. Local ownership keeps money in the region and can make projects easier to accept. Investors expect a modest return, and collecting the money takes time: the subscription period of a citizen fund usually lasts weeks or months.
+- JA: 日本の地域エネルギー事業の多くは、住民の出資で資金を集めています。匿名組合などの仕組みが使われ、たとえば奈良県生駒市では、市民共同発電所を全額市民の出資でつくりました。地域に利益が残り、事業が受け入れられやすくなることがあります。出資者はある程度の利回りを期待し、資金集めには時間がかかります。市民ファンドの募集期間は、通常数週間から数か月です。
 
 **Sources**
 - 環境省, グッドライフアワード 報告（生駒市）: https://www.env.go.jp/policy/kihon_keikaku/goodlifeaward/report/201703_02/
 - 西城戸誠, 市民出資型の再生可能エネルギー事業（法政大学）: https://hosei.ecats-library.jp/da/repository/00010424/14_nkr_15-1_nishikido.pdf
 
-**Please check:** whether you prefer a different or better-known example (for example from your own network); whether to mention that soliciting investors is regulated (金融商品取引法).
+**Please check:** whether you prefer a different or better-known example (for example from your own network); whether to mention that soliciting investors is regulated (金融商品取引法). The last sentence (a modest return; subscription periods of weeks or months) is from my general knowledge, not from the sources above. In the game, the 25% income share for 20% of the cost and the uptake thresholds are game values.
 
 ---
 
