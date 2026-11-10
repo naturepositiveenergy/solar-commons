@@ -53,7 +53,7 @@
   function openNew(siteIndex) {
     const g = SC.session.game, site = g && g.sites[siteIndex];
     if (!site) return;
-    ctx = { mode: 'new', siteIndex, site: site.type, promo: site.promo, fund: false, benefit: false,
+    ctx = { mode: 'new', siteIndex, site: site.type, town: site.town, promo: site.promo, fund: false, benefit: false,
       design: { ...lastDesign }, returnKey: 'plan-' + siteIndex };
     open();
   }
@@ -69,7 +69,7 @@
   function open() {
     const P = SC.session.game.P;
     $('designTitle').textContent = ctx.mode === 'new'
-      ? t('design.titleNew', { site: t('site.' + ctx.site) })
+      ? t('design.titleNew', { site: ctx.town === E.NEIGHBOUR ? t('town.siteIn', { site: t('site.' + ctx.site) }) : t('site.' + ctx.site) })
       : t('design.titleChange', { id: ctx.id });
     $('designForm').innerHTML = formHtml(P);
     editor = SC.mapEditor.create($('mapEditor'), {

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Solar Commons balancing simulator</title>
 <!-- The fonts are stored in the project (fonts/, made by tools/make-fonts.js) -->
-<link rel="stylesheet" href="../fonts/fonts.css?v=m8">
+<link rel="stylesheet" href="../fonts/fonts.css?v=m9">
 <style>
 :root {
   --paper: #F4F7F2; --surface: #FFFFFF; --ink: #1F2A24; --muted: #59665D; --line: #D3DCD3;
@@ -94,7 +94,7 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 <div class="wrap">
 <header>
   <h1>Solar Commons balancing simulator</h1>
-  <p>Tests the numbers of design document v0.9, using the same rules engine as the game (js/engine.js). All values are placeholders for game balance, not real cost, yield or permitting data.</p>
+  <p>Tests the numbers of design document v1.0, using the same rules engine as the game (js/engine.js). All values are placeholders for game balance, not real cost, yield or permitting data.</p>
   <div class="strip" aria-hidden="true"><span style="background:var(--careful)"></span><span style="background:var(--balanced)"></span><span style="background:var(--pollen)"></span><span style="background:var(--fast)"></span></div>
 </header>
 <nav role="tablist">
@@ -127,20 +127,20 @@ textarea { width: 100%; min-height: 120px; font-family: ui-monospace, monospace;
 
 <section id="tab-params" hidden>
   <div class="row" style="margin-bottom:16px">
-    <button class="act" id="resetBtn">Reset to v0.9 values</button>
+    <button class="act" id="resetBtn">Reset to v1.0 values</button>
     <button class="act" id="exportBtn">Export as JSON</button>
     <button class="act" id="importBtn">Import JSON</button>
   </div>
-  <p class="muted" style="margin-top:0">Values differing from v0.9 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
+  <p class="muted" style="margin-top:0">Values differing from v1.0 are outlined. Changes are saved in this browser and used by both tabs (manual play picks them up when you start a new game).</p>
   <div id="jsonBox" hidden><textarea id="jsonText" aria-label="Parameters as JSON"></textarea><p class="msg" id="jsonMsg"></p></div>
   <div id="paramForm"></div>
 </section>
 </div>
 
 <!-- Shared files: language system, English texts and the game rules (same engine as the game) -->
-<script src="../js/i18n.js?v=m8"></script>
-<script src="../lang/en.js?v=m8"></script>
-<script src="../js/engine.js?v=m8"></script>
+<script src="../js/i18n.js?v=m9"></script>
+<script src="../lang/en.js?v=m9"></script>
+<script src="../js/engine.js?v=m9"></script>
 <script>
 // Engine functions used by the simulator (the rules themselves are in js/engine.js)
 const {
@@ -178,10 +178,14 @@ function strategyTurn(g, key) {
   // start a new project
   const active = g.projects.filter(p => ['design', 'permitting', 'approved', 'building'].includes(p.status));
   const waiting = active.some(p => p.status === 'approved');
-  const trustOk = key !== 'fast' || g.T >= 25; // even a fast developer stops when the region turns hostile
-  if (active.length < S.maxActive && !waiting && trustOk) {
+  // even a fast developer stops building in a town that has turned hostile
+  const usable = s => key !== 'fast' || g.towns[s.town].T >= 25;
+  // sites in a town without a 条例 first (shorter permits there), otherwise in the order offered
+  const order = g.sites.map((s, i) => i).filter(i => usable(g.sites[i]))
+    .sort((a, b) => g.towns[g.sites[a].town].ordinance - g.towns[g.sites[b].town].ordinance);
+  if (active.length < S.maxActive && !waiting && order.length) {
     let idx = -1;
-    for (const t of S.pref) { idx = g.sites.findIndex(s => s.type === t); if (idx >= 0) break; }
+    for (const t of S.pref) { const i = order.find(j => g.sites[j].type === t); if (i !== undefined) { idx = i; break; } }
     if (idx >= 0) {
       const site = g.sites[idx].type;
       const unit = calcDesign(scaledDesign(S.block, 1), site, P);
@@ -227,7 +231,7 @@ function runGame(P, key, seed) {
 }
 
 function batch(P, key, runs) {
-  const res = { worth: [], money: [], cap: [], capOp: [], T: [], B: [], cancel: [], ord: 0, lost: 0, grades: { S: 0, A: 0, B: 0, C: 0, D: 0 }, score: [], objections: [], moneyCurve: [], trustCurve: [], parks: 0, marketParks: 0, removed: 0 };
+  const res = { worth: [], money: [], cap: [], capOp: [], T: [], B: [], cancel: [], ord: 0, lost: 0, grades: { S: 0, A: 0, B: 0, C: 0, D: 0 }, score: [], objections: [], moneyCurve: [], trustCurve: [], parks: 0, marketParks: 0, removed: 0, T2: [], ord2: 0, nParks: 0 };
   const turns = P.turns + 1;
   const mSum = new Array(turns).fill(0), tSum = new Array(turns).fill(0);
   for (let i = 0; i < runs; i++) {
@@ -236,13 +240,15 @@ function batch(P, key, runs) {
     res.money.push(g.money); res.cap.push(sc.capBuilt);
     res.worth.push(g.money + g.projects.filter(p => p.status === 'operating').reduce((s, p) => s + playerCost(p, P), 0));
     res.capOp.push(g.projects.filter(p => p.status === 'operating').reduce((s, p) => s + p.calc.cap, 0));
-    res.T.push(g.T);
+    res.T.push(g.towns[0].T);
+    if (g.towns[1]) { res.T2.push(g.towns[1].T); if (g.towns[1].ordinance) res.ord2++; }
+    res.nParks += g.projects.filter(p => p.town === 1 && ['operating', 'sold', 'removed'].includes(p.status)).length;
     const parks = g.projects.filter(p => p.status === 'operating' || p.status === 'sold');
     res.B.push(parks.length ? parks.reduce((s, p) => s + p.B, 0) / parks.length : 0);
     res.parks += parks.length; res.marketParks += parks.filter(p => p.support === 'market').length;
     res.removed += g.projects.filter(p => p.status === 'removed').length;
     res.cancel.push(g.cancellations); res.objections.push(g.objectionsTotal);
-    if (g.ordinance) res.ord++; if (g.lost) res.lost++;
+    if (g.towns[0].ordinance) res.ord++; if (g.lost) res.lost++;
     res.grades[sc.grade]++; res.score.push(sc.avg);
     for (let t = 0; t < turns; t++) { const h = g.hist[Math.min(t, g.hist.length - 1)]; mSum[t] += h.money; tSum[t] += h.T; }
   }
@@ -270,6 +276,8 @@ const PARAM_FORM = [
   ['Game', 'apPerTurn', 'Action points per turn', 1],
   ['Game', 'startTrust', 'Start trust', 5],
   ['Game', 'startRep', 'Start reputation', 5],
+  ['Game', 'neighbourTurn', 'Neighbouring town joins in turn', 1],
+  ['Game', 'neighbourSites', 'Sites in the neighbouring town per turn (max. 4)', 1],
   ['Game', 'maxTiles', 'Tiles per site', 10],
   ['Game', 'capTarget', 'Capacity target for grade above D', 1],
   ['Game', 'eventChance', 'Event chance per turn', 0.05],
@@ -354,6 +362,7 @@ const PARAM_FORM = [
   ['Operation', 'sellMult', 'Sale price (× build cost)', 0.1],
   ['Operation', 'sellTrustPenalty', 'Trust loss 2 turns after sale', 1],
 
+  ['Trust', 'warningSpread', 'Trust lost in the other town per warning', 1],
   ['Trust', 'strikeLimit', 'Strikes until 条例', 1],
   ['Trust', 'trustOrdinance', '条例 if trust below', 5],
   ['Trust', 'ordinanceTurns', '条例 extra permit turns', 1],
@@ -382,13 +391,13 @@ let P = defaultParams();
 try { const s = localStorage.getItem('sc-params'); if (s) Object.assign(P, JSON.parse(s)); } catch (e) {}
 function saveParams() { try { localStorage.setItem('sc-params', JSON.stringify(P)); } catch (e) {} updateNote(); }
 function changedCount() { const d = defaultParams(); return Object.keys(d).filter(k => d[k] !== P[k]).length; }
-function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v0.9` : 'Using v0.9 values'; }
+function updateNote() { const n = changedCount(); $('paramNote').textContent = n ? `${n} parameter${n > 1 ? 's' : ''} changed from v1.0` : 'Using v1.0 values'; }
 
 function renderParams() {
   const d = defaultParams(), groups = {};
   PARAM_FORM.forEach(x => { (groups[x[0]] = groups[x[0]] || []).push(x); });
   $('paramForm').innerHTML = Object.entries(groups).map(([g, list]) => `<fieldset><legend>${esc(g)}</legend><div class="pgrid">` +
-    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[3]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v0.9: ${d[x[1]]}"></label>`).join('') +
+    list.map(x => `<label>${esc(x[2])}<input type="number" step="${x[3]}" data-k="${x[1]}" value="${P[x[1]]}" class="${P[x[1]] !== d[x[1]] ? 'changed' : ''}" title="v1.0: ${d[x[1]]}"></label>`).join('') +
     '</div></fieldset>').join('');
   $('paramForm').querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
     const v = parseFloat(inp.value); if (isNaN(v)) { inp.value = P[inp.dataset.k]; return; }
@@ -442,11 +451,14 @@ function runAll() {
     ['Money at turn 10', r => fmt(r.moneyCurve[Math.min(10, r.moneyCurve.length - 1)])],
     ['Capacity built', r => fmt(avg(r.cap))],
     ['Capacity still operating', r => fmt(avg(r.capOp))],
-    ['Final trust', r => fmt(avg(r.T))],
+    ['Final trust (home town)', r => fmt(avg(r.T))],
+    ['Final trust (neighbouring town)', r => (r.T2.length ? fmt(avg(r.T2)) : '–')],
     ['Average biodiversity of parks', r => fmt(avg(r.B))],
     ['Cancellations per game', r => fmt(avg(r.cancel), 2)],
     ['Objections per game', r => fmt(avg(r.objections), 2)],
-    ['Games with 条例 enacted', r => fmt(100 * r.ord / runs, 0) + '%'],
+    ['Games with 条例 enacted (home town)', r => fmt(100 * r.ord / runs, 0) + '%'],
+    ['Games with 条例 in the neighbouring town', r => fmt(100 * r.ord2 / runs, 0) + '%'],
+    ['Parks built in the neighbouring town per game', r => fmt(r.nParks / runs, 2)],
     ['Games lost', r => fmt(100 * r.lost / runs, 0) + '%'],
     ['Average park score (0 to 14)', r => fmt(avg(r.score))],
     ['Built parks selling at market prices (no FIT/FIP)', r => fmt(r.parks ? 100 * r.marketParks / r.parks : 0, 0) + '%'],
@@ -500,7 +512,7 @@ function projCard(p) {
   const d = p.design;
   const designTxt = TILE_KEYS.filter(k => d[k]).map(k => `${d[k]} ${k}`).join(', ') + `, ${d.mgmt}${d.cheap ? ', cheap build' : ''}`;
   const btns = canEngage ? Object.entries(ACTIONS).map(([k, a]) => `<button class="act" data-a="${k}" data-p="${p.id}" ${G.ap < a.ap || (k === 'fund' && p.fund) || (k === 'benefit' && p.benefit) ? 'disabled' : ''}>${esc(t('action.' + k))} (${a.ap})</button>`).join('') : '';
-  return `<div class="card st-${p.status}"><h3>Project ${p.id}: ${esc(siteName(p.site))}${p.promo ? '<span class="tag">promotion zone</span>' : ''}</h3>
+  return `<div class="card st-${p.status}"><h3>Project ${p.id}: ${esc(siteName(p.site))}${p.town ? '<span class="tag">neighbouring town</span>' : ''}${p.promo ? '<span class="tag">promotion zone</span>' : ''}</h3>
     <p class="muted" style="margin:0 0 6px">${STATUS[p.status]}${info ? ', ' + info : ''}. Capacity ${fmt(p.calc.cap)}, cost ${fmt(p.calc.cost)}${p.fund ? ', citizen fund' : ''}${p.benefit ? ', benefit agreement' : ''}.</p>
     <p class="muted" style="margin:0 0 8px;font-size:0.85rem">${esc(designTxt)}</p>
     ${['cancelled', 'sold', 'removed'].includes(p.status) ? '' : `<p style="margin:0 0 4px"><b>Acceptance ${fmt(A, 0)}</b></p>${resBars(p)}`}
@@ -534,14 +546,14 @@ function renderPlay() {
       <div><b>${Math.min(G.turn, G.P.turns)} / ${G.P.turns}</b>turn</div>
       <div><b>${fmt(G.money)}</b>money</div>
       <div><b>${G.ap}</b>action points</div>
-      <div><b>${fmt(G.T, 0)}</b>trust</div>
+      <div><b>${G.towns.map(tw => fmt(tw.T, 0)).join(' / ')}</b>trust${G.towns.length > 1 ? ' (home / neighbour)' : ''}</div>
       <div><b>${fmt(G.R, 0)}</b>reputation</div>
-      <div><b>${G.strikes}</b>strikes</div>
-      <div><b>${G.ordinance ? 'yes' : 'no'}</b>条例</div>
+      <div><b>${G.towns.map(tw => tw.strikes).join(' / ')}</b>strikes</div>
+      <div><b>${G.towns.map(tw => (tw.ordinance ? 'yes' : 'no')).join(' / ')}</b>条例</div>
     </div>
     ${G.over ? endScreen() : ''}
     <p class="msg" aria-live="polite">${esc(msg)}</p>
-    ${G.over ? '' : `<h2 style="margin-top:4px">Available sites</h2><div class="cards">${G.sites.map((s, i) => `<div class="card"><h3>${esc(siteName(s.type))}${s.promo ? '<span class="tag">promotion zone</span>' : ''}</h3><p class="muted" style="margin:0 0 8px">Base permit ${G.P['permit_' + s.type]} turns, site risk ${G.P['risk_' + s.type]}</p><button class="act" data-plan="${i}">Plan a park here</button></div>`).join('')}</div>${planIdx !== null ? designForm() : ''}
+    ${G.over ? '' : `<h2 style="margin-top:4px">Available sites</h2><div class="cards">${G.sites.map((s, i) => `<div class="card"><h3>${esc(siteName(s.type))}${s.town ? '<span class="tag">neighbouring town</span>' : ''}${s.promo ? '<span class="tag">promotion zone</span>' : ''}</h3><p class="muted" style="margin:0 0 8px">Base permit ${G.P['permit_' + s.type]} turns${G.towns[s.town].ordinance ? ' (+' + G.P.ordinanceTurns + ' 条例)' : ''}, site risk ${G.P['risk_' + s.type]}</p><button class="act" data-plan="${i}">Plan a park here</button></div>`).join('')}</div>${planIdx !== null ? designForm() : ''}
     <div class="row" style="margin:18px 0"><button class="act primary" id="endTurn">End turn</button><button class="act" id="restart">Restart</button></div>`}
     <h2>Projects</h2>${G.projects.length ? `<div class="cards">${[...active, ...G.projects.filter(p => !active.includes(p))].map(projCard).join('')}</div>` : '<p class="muted">No projects yet. Plan a park on one of the available sites.</p>'}
     <h2>Log</h2><div class="log">${G.log.slice().reverse().map(l => `<p><b>T${l.turn}</b>${esc(t(l.msg))}</p>`).join('') || '<p class="muted">Nothing has happened yet.</p>'}</div>`;

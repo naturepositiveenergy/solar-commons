@@ -411,8 +411,10 @@ if (failures === beforeOffline) {
 
 // ---------- 8. Scenario check ----------
 // Two test players play the same scenario code with different decisions. Turn by turn, they must
-// be offered the same sites (as long as both have the same 条例 status, which bans forest sites)
-// and get the same event. Which project a grid delay hits may differ; its length may not.
+// be offered the same sites in each town (as long as both have the same 条例 status there, which
+// bans forest sites) and get the same event. Which project a grid delay hits may differ; its length may not.
+// It also checks the neighbouring town (section 2): its trust starts at the home town's trust, and
+// once it has joined, every regional warning also costs trust in the other town ("word travels").
 console.log('Scenario check');
 const beforeScenario = failures;
 const EVENT_KIND = {
@@ -426,7 +428,12 @@ function playScenario(code, r) {
   const turns = [];
   while (!g.over) {
     const t = g.turn;
-    turns[t] = { sites: JSON.stringify(g.sites), ordinance: g.ordinance };
+    const nb = g.towns[E.NEIGHBOUR];
+    turns[t] = {
+      home: JSON.stringify(g.sites.filter(s => s.town === E.HOME)), homeOrdinance: g.towns[E.HOME].ordinance,
+      nb: JSON.stringify(g.sites.filter(s => s.town === E.NEIGHBOUR)),
+      nbState: nb ? (E.neighbourOpen(g) ? 'open' : 'closed') + (nb.ordinance ? ', 条例' : '') : 'not yet'
+    };
     if (g.sites.length && r() < 0.6) {
       E.startProject(g, n(g.sites.length), { map: randomMap(r), mgmt: 'none', cheap: r() < 0.5 });
     }
@@ -441,9 +448,22 @@ function playScenario(code, r) {
     });
     turns[t].event = ev.join(',') || 'none';
   }
+  // the neighbouring town's trust starts at the home town's trust at the end of the turn before it joins
+  const P = g.P, joined = g.log.find(l => l.msg.key === 'log.neighbourJoined');
+  if (joined) {
+    joins++;
+    if (joined.msg.vars.trust !== g.hist[P.neighbourTurn - 1].T) fail(`code ${code}: the neighbouring town started with trust ${joined.msg.vars.trust}, not the home town's ${g.hist[P.neighbourTurn - 1].T}`);
+  } else if (!g.lost || g.turn > P.neighbourTurn) fail(`code ${code}: the neighbouring town never joined`);
+  // word travels: after it has joined, each warning is followed by the trust loss in the other town
+  g.log.forEach((l, i) => {
+    if (l.turn < P.neighbourTurn || !['log.strike', 'log.strikeNeighbour'].includes(l.msg.key)) return;
+    wordsChecked++;
+    const next = g.log[i + 1], want = l.msg.key === 'log.strike' ? 'log.wordNeighbour' : 'log.wordHome';
+    if (!next || next.msg.key !== want || next.msg.vars.trust !== P.warningSpread) fail(`code ${code}, turn ${l.turn}: a warning did not travel to the other town`);
+  });
   return turns;
 }
-let scenarioTurns = 0, ordinanceDiffers = 0;
+let scenarioTurns = 0, ordinanceDiffers = 0, neighbourDiffers = 0, joins = 0, wordsChecked = 0;
 for (let i = 0; i < 200 && failures === beforeScenario; i++) {
   const code = 1000 + i * 37;
   const a = playScenario(code, E.rng(code + 11)), b = playScenario(code, E.rng(code + 12));
@@ -454,32 +474,39 @@ for (let i = 0; i < 200 && failures === beforeScenario; i++) {
     if (ga !== gb || (lengthA && lengthB && lengthA !== lengthB)) {
       fail(`code ${code}, turn ${t}: the players got different events (${a[t].event} / ${b[t].event})`); break;
     }
-    if (a[t].ordinance !== b[t].ordinance) { ordinanceDiffers++; continue; }
-    if (a[t].sites !== b[t].sites) { fail(`code ${code}, turn ${t}: the players were offered different sites`); break; }
+    if (a[t].homeOrdinance !== b[t].homeOrdinance) ordinanceDiffers++;
+    else if (a[t].home !== b[t].home) { fail(`code ${code}, turn ${t}: the players were offered different sites in the home town`); break; }
+    if (a[t].nbState !== b[t].nbState) neighbourDiffers++;
+    else if (a[t].nb !== b[t].nb) { fail(`code ${code}, turn ${t}: the players were offered different sites in the neighbouring town`); break; }
   }
 }
 // The scenario codes recommended in docs/workshop-guide.md must still play as the guide describes
+// [home town sites in turn 1, events, neighbouring town sites in turn 9]
 const GUIDE_CODES = {
-  1052: ['reservoir*, forest, brownfield', '5 policy, 7 grid, 9 grid, 11 rain, 14 rival, 18 typhoon'],
-  7870: ['agri*, reservoir, brownfield', '2 curtailment, 10 rival, 11 typhoon, 14 policy, 17 grid, 19 rival'],
-  1016: ['brownfield, agri*, farmland', '3 curtailment, 7 grid']
+  1052: ['reservoir*, forest, brownfield', '5 policy, 7 grid, 9 grid, 11 rain, 14 rival, 18 typhoon', 'agri, reservoir'],
+  7870: ['agri*, reservoir, brownfield', '2 curtailment, 10 rival, 11 typhoon, 14 policy, 17 grid, 19 rival', 'reservoir*, forest'],
+  1016: ['brownfield, agri*, farmland', '3 curtailment, 7 grid', 'farmland, agri']
 };
-for (const [code, [sites, events]] of Object.entries(GUIDE_CODES)) {
+const siteList = list => list.map(s => s.type + (s.promo ? '*' : '')).join(', ');
+for (const [code, [sites, events, nbSites]] of Object.entries(GUIDE_CODES)) {
   const g = E.newGame(E.defaultParams(), Number(code));
-  const first = g.sites.map(s => s.type + (s.promo ? '*' : '')).join(', ');
+  const first = siteList(g.sites);
   const seen = [];
+  let nbFirst = '';
   while (!g.over) {
     const t = g.turn;
+    if (t === g.P.neighbourTurn) nbFirst = siteList(g.sites.filter(s => s.town === E.NEIGHBOUR));
     E.endTurn(g);
     g.log.filter(l => l.turn === t && EVENT_KIND[l.msg.key] && EVENT_KIND[l.msg.key] !== 'rare').forEach(l => seen.push(`${t} ${EVENT_KIND[l.msg.key]}`));
   }
-  if (first !== sites || seen.join(', ') !== events) {
-    fail(`scenario ${code} no longer plays as described in docs/workshop-guide.md (now: ${first} | ${seen.join(', ')}): update the guide`);
+  if (first !== sites || seen.join(', ') !== events || nbFirst !== nbSites) {
+    fail(`scenario ${code} no longer plays as described in docs/workshop-guide.md (now: ${first} | ${seen.join(', ')} | neighbour: ${nbFirst}): update the guide`);
   }
 }
 if (failures === beforeScenario) {
   console.log(`  ✓ 200 scenario codes: same sites and events for both players in all ${scenarioTurns} turns` +
-    ` (sites not compared in ${ordinanceDiffers} turns where only one player had a 条例)`);
+    ` (home sites not compared in ${ordinanceDiffers} turns, neighbouring town's sites in ${neighbourDiffers} turns, where the players' 条例 differed)`);
+  console.log(`  ✓ the neighbouring town joined ${joins} times with the home town's trust; ${wordsChecked} warnings travelled to the other town`);
   console.log(`  ✓ the ${Object.keys(GUIDE_CODES).length} scenario codes in docs/workshop-guide.md play as the guide describes`);
 }
 

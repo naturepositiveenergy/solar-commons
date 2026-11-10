@@ -24,6 +24,8 @@ For facilitators who use Solar Commons in a workshop, a class or a stakeholder m
    | **7870** | Typhoon and rivals | Agrivoltaics (promotion zone), reservoir, brownfield | Curtailment in turn 2, rival developers in turns 10 and 19, **typhoon in turn 11**, policy change (income −20%) in turn 14, grid delay in turn 17 |
    | **1016** | Calm start, for beginners or short sessions | Brownfield, agrivoltaics (promotion zone), farmland | Curtailment in turn 3, grid delay in turn 7 |
 
+   From turn 9, the neighbouring town also offers sites. In turn 9 it offers: 1052 agrivoltaics and reservoir; 7870 reservoir (promotion zone) and forest slope; 1016 farmland and agrivoltaics.
+
    The events are the same for everyone, but their effects differ. For example, heavy rain only damages parks on forest slopes and parks built cheaply. A typhoon only damages parks with fewer than 3 hedges on the edge of the site. This is what makes the discussion interesting.
 
 3. **Prepare the link with your code**, for example https://naturepositiveenergy.github.io/solar-commons/?code=1052. With this link, the start button says "Start scenario 1052". For a QR code, open the link in Chrome on a computer, right-click the page and choose **Create QR code for this page** (in some Chrome versions, this is in the **Share** menu of the address bar instead). Put the link and the QR code on your first slide.
@@ -76,6 +78,7 @@ Pick three or four. The policy notebook entry in brackets has the real-world bac
 **Speed and care**
 - Who tried a cheap build or a dense layout? What happened later?
 - One group's careless project can lead to an ordinance that makes every later project harder, including careful ones. Who carries the cost of "fast and cheap"? (*Local solar ordinances (条例)*)
+- From turn 9, the neighbouring town's trust in you started where your own town's trust stood. Who started there with an advantage? What happened to trust in one town after a warning in the other? (*Local solar ordinances (条例)*)
 
 **The community**
 - Which residents were hardest to win over, and what worked?
@@ -126,4 +129,4 @@ More technical help, including installing the game as an app: [publishing.md](pu
 
 - The game simplifies on purpose: its numbers are game values, not real costs, yields or permit times.
 - The policy notebook describes real Japanese policies as of its last review (see [policy-notebook.md](policy-notebook.md)). Policies change. For example, the government has decided to end FIT and FIP support for new ground-mounted solar projects of 10 kW and more from fiscal year 2027, while exceptions (for example for projects in promotion zones) were still being discussed in autumn 2026. Since rules v0.8, the game reflects this: projects submitted from turn 5 (fiscal year 2027) sell at market prices, unless they get the promotion zone bonus. If the final decision on exceptions (expected around January 2027) differs, the game will be updated.
-- The recommended scenario codes above are for the current version of the game (rules v0.9). If the rules change, they may play differently, and this guide will be updated.
+- The recommended scenario codes above are for the current version of the game (rules v1.0). If the rules change, they may play differently, and this guide will be updated.

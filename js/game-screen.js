@@ -26,19 +26,21 @@
   // How log messages are marked in the turn report and the log
   const GOOD = ['log.approved', 'log.constructionStarted', 'log.operating', 'log.rareFound', 'log.farmingOk'];
   const BAD = ['log.objection', 'log.cancelled', 'log.strike', 'log.ordinance', 'log.consentRefused',
-    'log.neglected', 'log.lostMoney', 'log.lostTrust', 'log.rival', 'log.farmingGuidance', 'log.farmingRemoved'];
+    'log.neglected', 'log.lostMoney', 'log.lostTrust', 'log.rival', 'log.farmingGuidance', 'log.farmingRemoved',
+    'log.strikeNeighbour', 'log.ordinanceNeighbour', 'log.wordHome', 'log.wordNeighbour'];
   const EVENT = ['log.typhoon', 'log.heavyRain', 'log.gridDelay', 'log.gridDelayNone', 'log.curtailment',
-    'log.policyChange', 'log.media', 'log.rareNone', 'log.supportEnded'];
+    'log.policyChange', 'log.media', 'log.rareNone', 'log.supportEnded', 'log.neighbourJoined'];
   const moodOf = key => (GOOD.includes(key) ? 'is-good' : BAD.includes(key) ? 'is-bad' : EVENT.includes(key) ? 'is-event' : '');
 
-  // The engine writes a regional warning just before the event that caused it
-  // (for example a warning, then "Typhoon"). For reading, put the event first.
+  // The engine writes a regional warning (and what the other town hears of it) just before the
+  // event that caused it (for example a warning, then "Typhoon"). For reading, put the event first.
   const CAUSES = [...EVENT, 'log.rival', 'log.rareFound'];
+  const WARNINGS = ['log.strike', 'log.strikeNeighbour', 'log.wordHome', 'log.wordNeighbour'];
   function readingOrder(msgs) {
     const out = [];
     msgs.forEach(m => {
       let i = out.length;
-      if (CAUSES.includes(m.key)) while (i > 0 && out[i - 1].key === 'log.strike') i--;
+      if (CAUSES.includes(m.key)) while (i > 0 && WARNINGS.includes(out[i - 1].key)) i--;
       out.splice(i, 0, m);
     });
     return out;
@@ -60,12 +62,19 @@
   // The last turn in which submitted projects still get FIT/FIP, and its fiscal year (section 6)
   const lastSupportTurn = g => ({ last: g.P.supportEndTurn - 1, fy: E.calendar(g, g.P.supportEndTurn - 1).fy });
 
+  // The towns (design document section 2): home town, and the neighbouring town from turn neighbourTurn
+  const home = g => g.towns[E.HOME];
+  const neighbour = g => g.towns[E.NEIGHBOUR];   // undefined until it joins
+  // Trust in the home town, with the neighbouring town's trust in small print once it has joined
+  const trustHtml = g => fmt(home(g).T, 0) +
+    (neighbour(g) ? `<span class="stat-goal">${esc(t('stat.trustNeighbour', { trust: neighbour(g).T }))}</span>` : '');
+
   // ⓘ button that opens the policy notebook at one entry
   const info = id => SC.notebook.infoButton(id);
   // Notebook entries for site types and log messages
   const SITE_ENTRY = { farmland: 'farmland', agri: 'agri', forest: 'forest' };
   const LOG_ENTRY = { 'log.gridDelay': 'grid', 'log.gridDelayNone': 'grid', 'log.curtailment': 'grid',
-    'log.ordinance': 'ordinance', 'log.rareFound': 'natureSite', 'log.supportEnded': 'fitfip',
+    'log.ordinance': 'ordinance', 'log.ordinanceNeighbour': 'ordinance', 'log.rareFound': 'natureSite', 'log.supportEnded': 'fitfip',
     'log.farmingOk': 'agri', 'log.farmingGuidance': 'agri', 'log.farmingRemoved': 'agri', 'log.thinned': 'agri' };
   const logLine = m => `<li class="${moodOf(m.key)}">${esc(t(m))}${LOG_ENTRY[m.key] ? ' ' + info(LOG_ENTRY[m.key]) : ''}</li>`;
 
@@ -75,9 +84,12 @@
     const dots = '●'.repeat(g.ap) + '○'.repeat(Math.max(0, P.apPerTurn - g.ap));
     const chip = (label, value, mood) =>
       `<div class="stat-chip${mood ? ' is-' + mood : ''}"><dt>${esc(label)}</dt><dd>${value}</dd></div>`;
+    const nb = neighbour(g);
     const flags = [
-      g.ordinance ? `<span class="flag is-bad">${esc(t('status.ordinance'))}</span>${info('ordinance')}` : '',
-      g.strikes ? `<span class="flag is-warn">${esc(t('status.warnings', { count: g.strikes }))}</span>` : '',
+      home(g).ordinance ? `<span class="flag is-bad">${esc(t('status.ordinance'))}</span>${info('ordinance')}` : '',
+      home(g).strikes ? `<span class="flag is-warn">${esc(t('status.warnings', { count: home(g).strikes }))}</span>` : '',
+      nb && nb.ordinance ? `<span class="flag is-bad">${esc(t('status.ordinanceNeighbour'))}</span>${info('ordinance')}` : '',
+      nb && nb.strikes ? `<span class="flag is-warn">${esc(t('status.warningsNeighbour', { count: nb.strikes }))}</span>` : '',
       `<span class="flag">${esc(t('stat.reputation', { rep: g.R }))}</span>`,
       `<span class="flag flag-code">${esc(t('game.code', { code: g.seed }))}</span>`
     ].join('');
@@ -87,10 +99,10 @@
           <strong>${esc(t('status.time', E.calendar(g, turn)))}</strong>
           <span>${esc(t('status.turn', { turn, turns: P.turns }))}</span>
         </div>
-        <dl class="status-stats">
+        <dl class="status-stats${neighbour(g) ? ' has-neighbour' : ''}">
           ${chip(t('stat.money'), fmt(g.money, 1), g.money < 0 ? 'bad' : '')}
           ${chip(t('stat.ap'), `<span class="ap-dots" aria-hidden="true">${dots}</span> ${g.ap}`, '')}
-          ${chip(t('stat.trust'), fmt(g.T, 0), g.T < P.loseTrust + 10 ? 'bad' : '')}
+          ${chip(t('stat.trust'), trustHtml(g), home(g).T < P.loseTrust + 10 ? 'bad' : '')}
           ${chip(t('stat.capacity'), `${fmt(E.scoreGame(g).capBuilt, 1)}<span class="stat-goal">${esc(t('stat.capacityGoal', { goal: P.capTarget }))}</span>`, '')}
         </dl>
       </div>
@@ -102,7 +114,10 @@
     const P = g.P, list = [];
     if (g.turn === 1) list.push(['info', t('alert.goal', { goal: P.capTarget, turns: P.turns })]);
     if (g.money < 0) list.push(['bad', t('alert.moneyNegative')]);
-    if (g.T < P.loseTrust + 10) list.push(['bad', t('alert.trustLow', { limit: P.loseTrust })]);
+    if (home(g).T < P.loseTrust + 10) list.push(['bad', t('alert.trustLow', { limit: P.loseTrust })]);
+    // the neighbouring town (section 2)
+    if (g.turn >= P.neighbourTurn - 2 && g.turn < P.neighbourTurn) list.push(['info', t('alert.neighbourSoon', { turn: P.neighbourTurn })]);
+    if (neighbour(g) && !E.neighbourOpen(g)) list.push(['bad', t('alert.neighbourClosed')]);
     if (g.turn === P.turns) list.push(['info', t('alert.lastTurn')]);
     // the end of FIT/FIP for projects submitted from fiscal year 2027 (section 6)
     const deadline = lastSupportTurn(g);
@@ -115,7 +130,7 @@
   function sitesHtml(g) {
     if (g.over) return '';
     const P = g.P;
-    const cards = g.sites.map((s, i) => `
+    const card = (s, i) => `
       <article class="card site-card">
         <div class="card-head">
           <h3>${esc(t('site.' + s.type))}</h3>
@@ -123,17 +138,31 @@
         </div>
         <p class="card-text">${esc(t('siteInfo.' + s.type))}${SITE_ENTRY[s.type] ? ' ' + info(SITE_ENTRY[s.type]) : ''}</p>
         <ul class="facts">
-          <li>${esc(t('sites.permit', { turns: E.sitePermitTurns(g, s.type) }))}</li>
+          <li>${esc(t('sites.permit', { turns: E.sitePermitTurns(g, s.type, s.town) }))}</li>
           <li>${esc(t('sites.risk', { level: t(siteRiskLevel(P['risk_' + s.type])) }))}</li>
         </ul>
         ${s.promo ? `<p class="card-note">${esc(t('sites.promoInfo', { fy: E.calendar(g, P.supportEndTurn).fy }))}</p>` : ''}
         <button type="button" class="btn btn-small" data-act="plan" data-site="${i}" data-key="plan-${i}">${esc(t('sites.plan'))}</button>
-      </article>`).join('');
+      </article>`;
+    const grid = list => `<div class="site-grid">${list.map(i => card(g.sites[i], i)).join('')}</div>`;
+    const all = g.sites.map((s, i) => i);
+    let body;
+    if (!all.length) body = `<p class="empty">${esc(t('sites.none'))}</p>`;
+    else if (!neighbour(g)) body = grid(all);
+    else {
+      // once the neighbouring town has joined: one group per town, with its trust in you
+      body = [E.HOME, E.NEIGHBOUR].map(town => {
+        const list = all.filter(i => g.sites[i].town === town);
+        if (!list.length) return '';
+        const name = t(town === E.HOME ? 'town.home' : 'town.neighbour');
+        return `<h3 class="town-title">${esc(t('sites.townTrust', { town: name, trust: g.towns[town].T }))}</h3>${grid(list)}`;
+      }).join('');
+    }
     return `
       <section class="game-section" aria-labelledby="sitesTitle">
         <h2 id="sitesTitle">${esc(t('sites.title'))}</h2>
-        <p class="section-hint">${esc(t('sites.hint'))}</p>
-        ${cards ? `<div class="site-grid">${cards}</div>` : `<p class="empty">${esc(t('sites.none'))}</p>`}
+        <p class="section-hint">${esc(t(E.neighbourOpen(g) ? 'sites.hintTwo' : 'sites.hint'))}</p>
+        ${body}
       </section>`;
   }
 
@@ -154,6 +183,7 @@
       </div>`;
     const facts = `
       <p class="facts-line">${esc(t('project.facts', { cap: p.calc.cap, cost: p.calc.cost, b: p.calc.bTarget }))}
+        ${p.town === E.NEIGHBOUR ? `<span class="tag is-town">${esc(t('town.neighbour'))}</span>` : ''}
         ${p.promo ? `<span class="tag is-promo">${esc(t('sites.promo'))}</span>${info('promo')}` : ''}
         ${p.support && !ENDED.includes(p.status) ? `<span class="tag is-${p.support}">${esc(t('support.' + p.support))}</span>${info('fitfip')}` : ''}</p>`;
     // the facts and status on the left, a small map of the park on the right
@@ -323,7 +353,8 @@
   // ===== Turn report =====
   function endTurn() {
     const g = game();
-    const before = { turn: g.turn, money: g.money, T: g.T, logLength: g.log.length, notebook: SC.notebook.discovered(g) };
+    const before = { turn: g.turn, money: g.money, T: home(g).T, T2: neighbour(g) ? neighbour(g).T : null,
+      logLength: g.log.length, notebook: SC.notebook.discovered(g) };
     SC.session.act('endTurn');
     render();
     const entries = readingOrder(g.log.slice(before.logLength).map(l => l.msg));
@@ -339,7 +370,8 @@
       (entries.length
         ? `<ul class="report-list">${entries.map(logLine).join('')}</ul>`
         : `<p class="report-quiet">${esc(t('report.quiet'))}</p>`) +
-      `<dl class="report-changes">${change(t('stat.money'), before.money, g.money, 1)}${change(t('stat.trust'), before.T, g.T, 0)}</dl>` +
+      `<dl class="report-changes">${change(t('stat.money'), before.money, g.money, 1)}${change(t('stat.trust'), before.T, home(g).T, 0)}` +
+        (before.T2 !== null ? change(t('stat.trustNeighbourLabel'), before.T2, neighbour(g).T, 0) : '') + `</dl>` +
       (newEntries.length ? `<div class="report-notebook"><p>${esc(t('nb.reportNew'))}</p><ul>${newEntries.map(id =>
         `<li><button type="button" class="btn-link" data-nb="${id}">${esc(SC.notebook.title(id))}</button></li>`).join('')}</ul></div>` : '') +
       (g.over ? `<p class="report-over">${esc(t('report.gameOver'))}</p>` : '');

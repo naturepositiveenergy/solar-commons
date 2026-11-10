@@ -64,10 +64,11 @@
         </div>
       </div>
       ${s.note ? `<p class="alert is-bad">${esc(t(s.note))}${lostReason ? ' ' + esc(t(lostReason.msg)) : ''}</p>` : ''}
-      <dl class="status-stats end-stats">
+      <dl class="status-stats end-stats${g.towns[E.NEIGHBOUR] ? ' has-neighbour' : ''}">
         ${stat(t('end.capacity'), `${fmt(s.capBuilt, 1)}<span class="stat-goal">${esc(t('stat.capacityGoal', { goal: P.capTarget }))}</span>`)}
         ${stat(t('stat.money'), fmt(g.money, 1))}
-        ${stat(t('stat.trust'), fmt(g.T, 0))}
+        ${stat(t('stat.trust'), fmt(g.towns[E.HOME].T, 0) + (g.towns[E.NEIGHBOUR]
+          ? `<span class="stat-goal">${esc(t('stat.trustNeighbour', { trust: g.towns[E.NEIGHBOUR].T }))}</span>` : ''))}
         ${stat(t('end.reputation'), fmt(g.R, 0))}
       </dl>
       <div class="end-share">
@@ -94,7 +95,8 @@
     const lines = [
       `${t('app.title')} – ${t('game.code', { code: g.seed })}`,
       t('results.grade', { grade: s.grade, label: t(GRADE_TEXT[s.grade]), avg: s.avg, max: MAX_POINTS }),
-      t('results.stats', { cap: s.capBuilt, goal: g.P.capTarget, money: g.money, trust: g.T, rep: g.R })
+      t(g.towns[E.NEIGHBOUR] ? 'results.statsTwo' : 'results.stats', { cap: s.capBuilt, goal: g.P.capTarget, money: g.money,
+        trust: g.towns[E.HOME].T, trust2: g.towns[E.NEIGHBOUR] ? g.towns[E.NEIGHBOUR].T : 0, rep: g.R })
     ];
     if (s.note) lines.push(t(s.note));
     for (const { p, s: sc } of s.parks) {

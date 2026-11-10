@@ -1,6 +1,8 @@
 # Solar Commons (working title)
 
-**Game Design Document v0.9** | Christian Doedt | Draft for discussion
+**Game Design Document v1.0** | Christian Doedt | Draft for discussion
+
+*Changes in v1.0: a neighbouring town. From turn 9 (April 2028), a neighbouring town also offers sites; its trust in the player starts at the home town's trust. Each town has its own trust, warnings and 条例, and each regional warning also costs 5 trust in the other town ("word travels"). The reputation thresholds of earlier versions (new towns at R ≥ 50, 70, 90) are dropped: they were hardly ever reached within 20 turns (sections 1, 2, 3, 5, 7, 8, 9, 10, 11 and 12).*
 
 *Changes in v0.9: the yearly farming report for agrivoltaics. At the end of each fiscal year, agrivoltaics parks report their harvest; a park whose crops get too little light gets guidance, can thin out its panels, and is removed after two poor reports in a row (sections 4, 6, 7 and 10). The balance of the three strategies is unchanged (section 11).*
 
@@ -14,7 +16,7 @@
 
 ## 1. Concept
 
-The player is a solar PV developer in a rural Japanese municipality. The goal is to build solar parks that generate energy, support biodiversity, and earn local acceptance. Careless projects can be profitable in the short term, but they trigger objections, stricter local rules, and lasting distrust. Careful projects are approved faster and open doors to further projects.
+The player is a solar PV developer in a rural Japanese municipality, and from 2028 also in the neighbouring town. The goal is to build solar parks that generate energy, support biodiversity, and earn local acceptance. Careless projects can be profitable in the short term, but they trigger objections, stricter local rules, and lasting distrust. Careful projects are approved faster and open doors to further projects.
 
 - **Audience:** workshop participants, students, stakeholders, general public
 - **Platform:** browser-based PWA (desktop and mobile), Japanese and English
@@ -24,9 +26,16 @@ The player is a solar PV developer in a rural Japanese municipality. The goal is
 
 One turn = one quarter. A scenario lasts 20 turns (5 years): fiscal years 2026 to 2030, starting in April 2026 (turn 1 = April to June 2026, turn 5 = April to June 2027).
 
-**Scenario codes:** every game has a scenario code, a number from 1000 to 9999. Everyone who plays the same code is offered the same sites and gets the same events in the same turns, whatever they decide, so groups in a workshop can compare their games. To make this possible, random numbers are drawn separately for the sites, for the events, and for each game's own luck (objections and varying prices under FIP and market sales). Which project a grid delay hits depends on the player's projects. When a 条例 bans forest sites, a forest offer is replaced by another site type, and the other offers stay the same.
+**Scenario codes:** every game has a scenario code, a number from 1000 to 9999. Everyone who plays the same code is offered the same sites and gets the same events in the same turns, whatever they decide, so groups in a workshop can compare their games. To make this possible, random numbers are drawn separately for the sites, for the events, and for each game's own luck (objections and varying prices under FIP and market sales). Which project a grid delay hits depends on the player's projects. When a 条例 bans forest sites, a forest offer is replaced by another site type, and the other offers stay the same. The neighbouring town's sites have their own random numbers, so the home town's sites are the same as before v1.0.
 
-1. **Scout:** choose a site from 3 random options
+**The neighbouring town (added in v1.0):** from turn 9 (April 2028), a neighbouring town joins the game. Each turn it offers 2 sites, in addition to the 3 in the home town.
+
+- **Word travels:** its trust in the player starts at the home town's trust at that moment (for example about 58 after careful play, about 44 after fast-and-cheap play).
+- **Separate towns:** each town has its own trust, regional warnings (strikes) and 条例 (section 7). A project belongs to the town where its site is: its residents start from that town's trust, and its consequences fall on that town.
+- **Closed to the player:** if the neighbouring town's trust falls below 5, it offers no more sites. Projects already there continue.
+- National rules (end of FIT/FIP, the yearly farming report, promotion zones) apply in both towns.
+
+1. **Scout:** choose a site from 3 random options (5 from turn 9: 3 in the home town, 2 in the neighbouring town)
 2. **Design:** place panels and nature measures on a 10 × 10 tile map
 3. **Engage:** spend action points on community activities
 4. **Permit:** pass through real permit steps, with objection risk each turn
@@ -40,10 +49,10 @@ One turn = one quarter. A scenario lasts 20 turns (5 years): fiscal years 2026 t
 |---|---|---|---|
 | Money (M) | 0+ | 100 | Abstract credits |
 | Action points (AP) | per turn | 3 | Engagement and planning |
-| Trust (T) | 0 to 100 | 50 | Per municipality, long-term memory |
+| Trust (T) | 0 to 100 | 50 | Per town, long-term memory. The neighbouring town (from turn 9) starts at the home town's trust |
 | Acceptance (A) | 0 to 100 | = T | Per project |
 | Biodiversity (B) | 0 to 100 | 0 | Per park, grows during operation |
-| Reputation (R) | 0 to 100 | 30 | Global, unlocks municipalities |
+| Reputation (R) | 0 to 100 | 30 | Global; shown to the player, little effect on play (section 8) |
 
 ## 4. Site types
 
@@ -79,7 +88,7 @@ Each site has a 20% chance of lying in a promotion zone (促進区域). If, at s
 
 **Changing plans:** until a project is submitted, its design can be changed at any time, for example after talking with residents. A project that has not been submitted can also be dropped without penalty: the site and any action points already spent are lost, and a benefit agreement ends.
 
-**Residents:** farmer, elderly resident, young family, nature group, 自治会 leader, each with support S from −100 to +100. Starting S = (T − 50) × 2, so a new project starts with A = T.
+**Residents:** farmer, elderly resident, young family, nature group, 自治会 leader, each with support S from −100 to +100. Starting S = (T − 50) × 2, using the trust of the project's town, so a new project starts with A = T.
 
 **Engagement actions**
 
@@ -146,8 +155,10 @@ This strategy is deliberately attractive in the short term.
 **Delayed consequences**
 
 - A regional strike is added for each cancelled project, each cheap build damaged by an event, a park starting operation with A below 30, a forest park with negative biodiversity target, each agrivoltaics park removed after poor harvests, and each rival developer's bad project
-- At 2 strikes, or if T falls below 30, the municipality enacts a 条例: permit time +2, 自治会 consent required at the end of permitting (A ≥ 60, otherwise counts as an objection and delays one turn), forest sites banned
-- The 条例 applies to all future projects, including good ones
+- At 2 strikes, or if T falls below 30, the town enacts a 条例: permit time +2, 自治会 consent required at the end of permitting (A ≥ 60, otherwise counts as an objection and delays one turn), forest sites banned
+- The 条例 applies to all future projects in that town, including good ones
+- Strikes and 条例 are counted per town (v1.0): a strike falls on the town of the project that caused it; the rival developer's bad project falls on the home town
+- **Word travels (v1.0):** once the neighbouring town has joined, each strike in one town also costs 5 trust in the other town. Without this rule, a careless developer could simply move on: in the simulator, fast-and-cheap players then lost only 22% of games instead of about 60%
 
 ## 8. Formulas
 
@@ -159,9 +170,12 @@ This strategy is deliberately attractive in the short term.
 - **Biodiversity target:** B_target = min(100, tile and management points + 5 × (distinct measure types − 1)) + site modifier. Wide panels, each nature tile type, and management each count as one measure type. Corridor tiles count only when connected (section 5). During operation, B grows by 20% of the remaining gap per turn
 - **Revenue per turn:** capacity × 0.6 × policy factor × price factor × curtailment − management cost − citizen fund share − decommissioning reserve. Price factor: FIT 1; FIP random 0.8 to 1.2; market prices random 0.5 to 1.1 (section 6)
 - **Trust update at start of operation:** ΔT = (A − 50) / 5 + B_target / 20 (uses the planned target, since actual B is still near zero at that point)
-- **Reputation:** +T / 10 when a park starts operating; new municipalities unlock at R ≥ 50, 70, 90
+- **Trust update at start of operation** and all other trust changes apply to the town of the project concerned
+- **Reputation:** +T / 10 (trust of the park's town) when a park starts operating; +10 for a rare species sighting. Reputation no longer unlocks towns (v1.0)
 
 ## 9. Events (25% chance per turn, one of eight)
+
+Events affect parks and projects in both towns, except the rival developer's bad project.
 
 | Event | Effect |
 |---|---|
@@ -170,7 +184,7 @@ This strategy is deliberately attractive in the short term.
 | Grid connection delay | One project in permitting or construction +1 to 3 turns |
 | Curtailment | Revenue ×0.7 this turn |
 | Policy change | Revenue ×0.8 or ×1.2 for the rest of the game |
-| Rival developer's bad project | T −5, one strike |
+| Rival developer's bad project | Home town: T −5, one strike |
 | Local media story | Projects in design or permitting: S +10 if A ≥ 50, otherwise −10 |
 | Rare species sighting | If any park has B ≥ 60: R +10 |
 
@@ -192,19 +206,21 @@ At the end of the scenario, each built park (operating, sold or removed) is rate
 
 Grade D is given regardless of score if built capacity (including sold parks, but not removed parks) is below 15, or if the game is lost.
 
-**Lose conditions:** money below 0 for 2 consecutive turns, or T below 5.
+**Lose conditions:** money below 0 for 2 consecutive turns, or trust below 5 in the home town. (In the neighbouring town, trust below 5 only closes it to new projects.)
 
-## 11. Balance status (simulator, 1,000 games per strategy, v0.9)
+## 11. Balance status (simulator, 1,000 games per strategy, v1.0)
 
 | | Careful | Balanced | Fast and cheap |
 |---|---|---|---|
-| Final cash | ~52 | ~70 | ~127 |
-| Net worth (cash + own share of operating parks) | ~184 | ~200 | ~131 |
-| 条例 enacted | ~13% | ~13% | ~99% |
-| Games lost | 0% | 0% | ~60% |
+| Final cash | ~53 | ~71 | ~113 |
+| Net worth (cash + own share of operating parks) | ~183 | ~201 | ~118 |
+| 条例 enacted (home town) | ~13% | ~13% | ~99% |
+| 条例 enacted (neighbouring town) | 0% | 0% | ~83% |
+| Neighbouring town's trust: at turn 9 → at the end | ~58 → ~57 | ~54 → ~52 | ~44 → ~18 |
+| Games lost | 0% | 0% | ~54% |
 | Average park score (0 to 14) | 13.6 | 11.1 | 1.9 |
 | Typical grade | S | A | D |
-| Parks selling at market prices | ~13% | ~5% | ~4% |
+| Parks selling at market prices (v0.9) | ~13% | ~5% | ~4% |
 
 All eight intended-outcome checks pass. Careful costs some money but gives the best results for nature and community; balanced earns slightly more with a weaker score; fast-and-cheap holds the most cash at high risk and with lasting regional damage.
 
@@ -214,8 +230,10 @@ All eight intended-outcome checks pass. Careful costs some money but gives the b
 
 **Effect of the yearly farming report (v0.9):** none of the three strategies is affected: careful and balanced players use at least as many wide-spaced as dense panels on agrivoltaics sites, and fast-and-cheap players never build there. A test player who fills agrivoltaics sites with dense panels gets guidance for almost all of these parks. If it ignores the guidance, about half of these parks are removed (in about 60% of its games): its average park score falls from 8.3 to 7.4, built capacity from ~45 to ~28, and grade D rises from 2% to 17% of games. If it thins out after guidance, no park is removed, thinning keeps about 85% of a park's capacity, and its average park score rises to 8.7, but it ends with less money (~87 instead of ~111).
 
-**Simplifications in the simulator:** its computer players do not draw maps, so it assumes good placement (all hedges on the edge, all corridors connected). They never need to thin out panels.
+**Effect of the neighbouring town (v1.0):** careful and balanced players hardly use it (about 0.07 and 0.02 parks per game there): their two parallel projects usually find good sites at home. Fast-and-cheap players move their later projects there once the home town has a 条例. Without "word travels", this let them escape the consequences (games lost fell from about 60% to 22%); with it (5 trust per strike), the risk is about as before (54%), and the damage visibly spreads: the neighbouring town passes a 条例 in about 83% of their games. Fast-and-cheap now reaches grade C in under 1% of games (otherwise D).
+
+**Simplifications in the simulator:** its computer players do not draw maps, so it assumes good placement (all hedges on the edge, all corridors connected). They never need to thin out panels. They prefer sites in a town without a 条例, and fast-and-cheap players stop building in a town whose trust is below 25.
 
 ## 12. MVP scope
 
-One municipality, three sites per turn from five types, five residents, six tile types, eight events, the 説明会 rule, 農地転用, 林地開発許可, and the 条例 trigger. Simple coloured tiles, no illustrations.
+Two towns (the home town, and the neighbouring town from turn 9), three sites per turn from five types (plus two in the neighbouring town), five residents, six tile types, eight events, the 説明会 rule, 農地転用, 林地開発許可, and the 条例 trigger. Simple coloured tiles, no illustrations.

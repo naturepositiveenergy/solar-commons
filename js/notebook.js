@@ -26,7 +26,7 @@
     { id: 'forest', source: 'https://www.maff.go.jp/chushi/press/kikaku/attach/pdf/230707-15.pdf',
       found: g => g.projects.some(p => p.site === 'forest') },
     { id: 'ordinance', source: 'https://www.pref.yamanashi.jp/somu/shigaku/reiki/reiki_honbun/a500RG00001801.html',
-      found: g => g.ordinance },
+      found: g => g.towns.some(town => town.ordinance) },
     { id: 'promo', source: 'https://www.env.go.jp/content/000395587.pdf',
       found: g => g.projects.some(p => p.promo) },
     { id: 'fitfip', source: 'https://www.meti.go.jp/shingikai/santeii/pdf/20260205_1.pdf',

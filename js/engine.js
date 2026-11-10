@@ -1,4 +1,4 @@
-// Solar Commons: game rules engine (design document v0.9)
+// Solar Commons: game rules engine (design document v1.0)
 //
 // This file is the referee of the game. It knows every rule and number,
 // but it never draws anything on screen and contains no texts. Messages for
@@ -11,7 +11,7 @@
 (function (root) {
 'use strict';
 
-// ===== Numbers (design document v0.9) =====
+// ===== Numbers (design document v1.0) =====
 // All rule numbers in one place. The simulator can override them for testing.
 const DEFAULT_PARAMS = {
   // Game
@@ -24,6 +24,8 @@ const DEFAULT_PARAMS = {
   maxTiles: 100,           // tiles per site (10 × 10 map)
   capTarget: 15,           // built capacity needed for a grade above D
   eventChance: 0.25,       // chance of an event each turn
+  neighbourTurn: 9,        // the neighbouring town joins in this turn (added in v1.0)
+  neighbourSites: 2,       // sites it offers each turn, in addition to the home town's 3
 
   // Tiles and management (design document section 5)
   denseCost: 3, denseCap: 1.0,
@@ -82,6 +84,7 @@ const DEFAULT_PARAMS = {
 
   // Trust and the 条例 (section 7)
   strikeLimit: 2,          // strikes until a 条例 is enacted
+  warningSpread: 5,        // trust lost in the other town for each regional warning (word travels, added in v1.0)
   trustOrdinance: 30,      // 条例 also if trust falls below
   ordinanceTurns: 2, ordinanceA: 60,
   rivalTrust: 5,
@@ -117,7 +120,7 @@ const STATUSES = ['design', 'permitting', 'approved', 'building', 'operating', '
 const MANAGEMENT = ['none', 'mowing', 'grazing'];
 // Version of the rules. Change it together with docs/design.md: saved games made
 // with other rules are not continued, because they would play differently.
-const RULES_VERSION = 'v0.9';
+const RULES_VERSION = 'v1.0';
 
 // ===== Helpers =====
 // Random numbers from a seed: the same seed always gives the same numbers.
@@ -142,12 +145,12 @@ function mix(...nums) {
   return h >>> 0;
 }
 // Scenario codes (design document section 2): the game's seed is its scenario code.
-// The random numbers come from three separate streams, so that everyone who plays the same
+// The random numbers come from separate streams, so that everyone who plays the same
 // code gets the same sites and the same events in the same turns, whatever they decide:
-// - sites of turn t:  only from the seed and t
+// - sites of turn t:  only from the seed and t (one stream per town)
 // - event of turn t:  only from the seed and t
 // - luck:             objections and market prices (FIP and market sales), which depend on the player's own projects
-const STREAM_SITES = 1, STREAM_EVENTS = 2, STREAM_LUCK = 3;
+const STREAM_SITES = 1, STREAM_EVENTS = 2, STREAM_LUCK = 3, STREAM_NEIGHBOUR_SITES = 4;
 const turnRandom = (g, stream) => rng(mix(g.seed, stream, g.turn));
 
 // A message for the player: a text code plus the values to fill in.
@@ -245,32 +248,46 @@ function calcDesign(design, site, P) {
   return calc;
 }
 
+// ===== Towns (section 2, added in v1.0) =====
+// g.towns[HOME] is the player's home town. The neighbouring town, g.towns[NEIGHBOUR], joins in turn
+// neighbourTurn; its trust starts at the home town's trust at that moment. Each town has its own
+// trust T, regional warnings (strikes) and 条例. Projects and sites belong to one town (p.town, site.town).
+const HOME = 0, NEIGHBOUR = 1;
+const newTown = T => ({ T, strikes: 0, ordinance: false });
+// The neighbouring town offers sites once it has joined, as long as its trust is not below loseTrust.
+const neighbourOpen = g => g.towns.length > NEIGHBOUR && g.towns[NEIGHBOUR].T >= g.P.loseTrust;
+
 // ===== Game state =====
 function newGame(P, seed) {
   const g = {
-    P, seed, luck: rng(mix(seed, STREAM_LUCK)), turn: 1, money: P.startMoney, ap: P.apPerTurn, T: P.startTrust, R: P.startRep,
-    strikes: 0, ordinance: false, revFactor: 1, curtail: 1, projects: [], log: [], hist: [],
+    P, seed, luck: rng(mix(seed, STREAM_LUCK)), turn: 1, money: P.startMoney, ap: P.apPerTurn, R: P.startRep,
+    towns: [newTown(P.startTrust)], revFactor: 1, curtail: 1, projects: [], log: [], hist: [],
     negTurns: 0, over: false, lost: null, nextId: 1, cancellations: 0, objectionsTotal: 0
   };
   genSites(g);
-  g.hist.push({ money: g.money, T: g.T });
+  g.hist.push({ money: g.money, T: g.towns[HOME].T });
   return g;
 }
 
-// Three different site types per turn. Four are drawn: the fourth replaces a forest site
-// when a 条例 bans forest sites, so the other offers stay the same as without the 条例.
+// The sites of this turn: three in the home town, and neighbourSites in the neighbouring town.
 function genSites(g) {
-  const r = turnRandom(g, STREAM_SITES);
+  g.sites = drawSites(g, HOME, 3, STREAM_SITES);
+  if (neighbourOpen(g)) g.sites.push(...drawSites(g, NEIGHBOUR, g.P.neighbourSites, STREAM_NEIGHBOUR_SITES));
+}
+// Different site types for one town. One more is drawn than offered: it replaces a forest site
+// when the town's 条例 bans forest sites, so the other offers stay the same as without the 条例.
+function drawSites(g, town, count, stream) {
+  const r = turnRandom(g, stream);
   const avail = SITE_TYPES.slice();
   const drawn = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i <= count; i++) {
     const type = avail.splice(Math.floor(r() * avail.length), 1)[0];
-    drawn.push({ type, promo: r() < g.P.promoChance });
+    drawn.push({ type, promo: r() < g.P.promoChance, town });
   }
-  const offers = drawn.slice(0, 3);
+  const offers = drawn.slice(0, count);
   const forest = offers.findIndex(s => s.type === 'forest');
-  if (g.ordinance && forest >= 0) offers[forest] = drawn[3];
-  g.sites = offers;
+  if (g.towns[town].ordinance && forest >= 0) offers[forest] = drawn[count];
+  return offers;
 }
 
 // ===== Residents and acceptance =====
@@ -314,12 +331,12 @@ function startProject(g, siteIdx, design) {
   const calc = calcDesign(design, site.type, P);
   const problem = designProblem(calc, P);
   if (problem) return { ok: false, msg: problem };
-  const base = (g.T - 50) * 2;
+  const base = (g.towns[site.town].T - 50) * 2;   // residents start from their town's trust in you
   const S = [base, base, base, base, base];
   if (site.type === 'agri') S[0] += P.agriFarmerBonus;
   if (site.type === 'forest') { S[1] -= P.forestPenalty; S[3] -= P.forestPenalty; }
   const p = {
-    id: g.nextId++, site: site.type, promo: site.promo, promoActive: false, design: normalizeDesign(design), calc,
+    id: g.nextId++, site: site.type, town: site.town, promo: site.promo, promoActive: false, design: normalizeDesign(design), calc,
     S: S.map(s => clamp(s, -100, 100)), status: 'design', genuineBefore: false, genuineAny: false,
     fund: false, benefit: false, objections: 0, engaged: false, damaged: false, struck: false,
     support: null, farmingFails: 0, lastReport: null, permitLeft: 0, buildLeft: 0, planningPaid: 0, B: calc.mod, finalA: null, sellTimer: 0, waitLogged: false
@@ -327,9 +344,12 @@ function startProject(g, siteIdx, design) {
   g.projects.push(p);
   g.sites.splice(siteIdx, 1);
   log(g, p.promo ? 'log.projectStartedPromo' : 'log.projectStarted',
-    { id: p.id, site: msg('site.' + p.site), cap: p.calc.cap, cost: p.calc.cost });
+    { id: p.id, site: siteName(p), cap: p.calc.cap, cost: p.calc.cost });
   return { ok: true, p };
 }
+
+// The site type for messages, with "in the neighbouring town" for projects there.
+const siteName = p => (p.town === NEIGHBOUR ? msg('town.siteIn', { site: msg('site.' + p.site) }) : msg('site.' + p.site));
 
 // Change the design of a project that has not been submitted yet (section 5, added in v0.5).
 function changeDesign(g, p, design) {
@@ -438,9 +458,9 @@ function farmingReport(g, p) {
   p.farmingFails++; p.lastReport = 'low';
   if (p.farmingFails < P.farmingFailLimit) { log(g, 'log.farmingGuidance', { id: p.id }); return; }
   const cost = p.calc.cost * P.removalShare;
-  p.status = 'removed'; g.money -= cost; g.T -= P.removalTrust;
+  p.status = 'removed'; g.money -= cost; g.towns[p.town].T -= P.removalTrust;
   log(g, 'log.farmingRemoved', { id: p.id, cost, trust: P.removalTrust });
-  strike(g, msg('strike.farmingRemoved', { id: p.id }));
+  strike(g, p.town, msg('strike.farmingRemoved', { id: p.id }));
 }
 
 // What thinning out the panels would mean: { tiles, cost, cap } (dense panels changed to wide-spaced
@@ -484,17 +504,17 @@ function calendar(g, turn = g.turn) {
 // or benefit agreement (section 4).
 function promoQualifies(p) { return p.promo && p.calc.bTarget >= 40 && (p.fund || p.benefit); }
 
-// Permit turns from the site type and the 条例 alone, before acceptance and bonuses.
-function sitePermitTurns(g, siteType) {
+// Permit turns from the site type and the town's 条例 alone, before acceptance and bonuses.
+function sitePermitTurns(g, siteType, town = HOME) {
   const P = g.P;
   return P['permit_' + siteType] + (siteType === 'farmland' ? P.farmlandExtra : 0) + (siteType === 'forest' ? P.forestExtra : 0)
-    + (g.ordinance ? P.ordinanceTurns : 0);
+    + (g.towns[town].ordinance ? P.ordinanceTurns : 0);
 }
 
 // Permit duration D (section 8) for acceptance A at submission.
 function permitTurns(g, p, A, promoActive) {
   const P = g.P;
-  const D = sitePermitTurns(g, p.site) + Math.max(0, Math.ceil((P.permitAThreshold - A) / P.permitAStep))
+  const D = sitePermitTurns(g, p.site, p.town) + Math.max(0, Math.ceil((P.permitAThreshold - A) / P.permitAStep))
     - (p.genuineBefore ? P.earlyBonus : 0) - (promoActive ? P.promoTurns : 0);
   return Math.max(1, D);
 }
@@ -542,24 +562,33 @@ function sell(g, p) {
   return { ok: true };
 }
 
-// ===== Strikes, 条例 and cancellation =====
-function strike(g, reason) {
-  g.strikes++;
-  log(g, 'log.strike', { reason, strikes: g.strikes });
+// ===== Strikes, 条例 and cancellation (each town has its own, section 7) =====
+function strike(g, town, reason) {
+  const tw = g.towns[town];
+  tw.strikes++;
+  log(g, town === HOME ? 'log.strike' : 'log.strikeNeighbour', { reason, strikes: tw.strikes });
+  // word travels: the other town hears about it and trusts you less
+  g.towns.forEach((other, i) => {
+    if (i === town) return;
+    other.T -= g.P.warningSpread;
+    log(g, i === HOME ? 'log.wordHome' : 'log.wordNeighbour', { trust: g.P.warningSpread });
+  });
 }
 
 function checkOrdinance(g) {
-  if (!g.ordinance && (g.strikes >= g.P.strikeLimit || g.T < g.P.trustOrdinance)) {
-    g.ordinance = true;
-    log(g, 'log.ordinance');
-  }
+  g.towns.forEach((tw, town) => {
+    if (!tw.ordinance && (tw.strikes >= g.P.strikeLimit || tw.T < g.P.trustOrdinance)) {
+      tw.ordinance = true;
+      log(g, town === HOME ? 'log.ordinance' : 'log.ordinanceNeighbour');
+    }
+  });
 }
 
 function cancel(g, p, reason) {
   p.status = 'cancelled'; g.cancellations++;
-  g.T -= g.P.cancelTrust;
+  g.towns[p.town].T -= g.P.cancelTrust;
   log(g, 'log.cancelled', { id: p.id, reason, trust: g.P.cancelTrust });
-  strike(g, msg('strike.cancelled'));
+  strike(g, p.town, msg('strike.cancelled'));
 }
 
 // ===== Events =====
@@ -578,7 +607,7 @@ function rollEvent(g) {
     live.forEach(p => {
       if (screenHedges(p.design, p.calc) < P.hedgesProtect) {
         g.money -= P.typhoonDamage * (p.design.cheap ? P.cheapDamageMult : 1); p.damaged = true; hit++;
-        if (p.design.cheap && !p.struck) { p.struck = true; strike(g, msg('strike.cheapDamaged', { id: p.id })); }
+        if (p.design.cheap && !p.struck) { p.struck = true; strike(g, p.town, msg('strike.cheapDamaged', { id: p.id })); }
       }
     });
     log(g, 'log.typhoon', { hit });
@@ -587,10 +616,10 @@ function rollEvent(g) {
     live.forEach(p => {
       if (p.site === 'forest') {
         g.money -= P.landslideDamage * (p.design.cheap ? P.cheapDamageMult : 1); p.damaged = true; hit++;
-        if (p.design.cheap) { g.T -= P.landslideTrust; if (!p.struck) { p.struck = true; strike(g, msg('strike.landslide', { id: p.id })); } }
+        if (p.design.cheap) { g.towns[p.town].T -= P.landslideTrust; if (!p.struck) { p.struck = true; strike(g, p.town, msg('strike.landslide', { id: p.id })); } }
       } else if (p.design.cheap) {
         g.money -= P.typhoonDamage * P.cheapDamageMult; p.damaged = true; hit++;
-        if (!p.struck) { p.struck = true; strike(g, msg('strike.runoff', { id: p.id })); }
+        if (!p.struck) { p.struck = true; strike(g, p.town, msg('strike.runoff', { id: p.id })); }
       }
     });
     log(g, 'log.heavyRain', { hit });
@@ -608,7 +637,8 @@ function rollEvent(g) {
     g.revFactor = clamp(g.revFactor * f, 0.5, 1.5);
     log(g, 'log.policyChange', { factor: f });
   } else if (ev === 5) {
-    g.T -= P.rivalTrust; log(g, 'log.rival', { trust: P.rivalTrust }); strike(g, msg('strike.rival'));
+    // the rival developer builds in the home town
+    g.towns[HOME].T -= P.rivalTrust; log(g, 'log.rival', { trust: P.rivalTrust }); strike(g, HOME, msg('strike.rival'));
   } else if (ev === 6) {
     g.projects.filter(p => p.status === 'design' || p.status === 'permitting').forEach(p => {
       const A = acceptance(p, P); shiftAll(p, A >= 50 ? P.mediaShift : -P.mediaShift);
@@ -642,7 +672,7 @@ function endTurn(g) {
       if (A < P.cancelA) return cancel(g, p, msg('cancel.acceptance', { A }));
       p.permitLeft--;
       if (p.permitLeft <= 0) {
-        if (g.ordinance && A < P.ordinanceA) {
+        if (g.towns[p.town].ordinance && A < P.ordinanceA) {
           p.objections++; g.objectionsTotal++; p.permitLeft = 1;
           log(g, 'log.consentRefused', { id: p.id, A });
           if (p.objections >= P.maxObjections) return cancel(g, p, msg('cancel.consent'));
@@ -660,10 +690,11 @@ function endTurn(g) {
         p.status = 'operating';
         const A = acceptance(p, P); p.finalA = A;
         const dT = (A - 50) / 5 + p.calc.bTarget / 20;
-        g.T += dT; g.R += g.T / 10;
+        const tw = g.towns[p.town];
+        tw.T += dT; g.R += tw.T / 10;
         log(g, 'log.operating', { id: p.id, A, dT });
-        if (A < 30) strike(g, msg('strike.lowAcceptance', { id: p.id }));
-        if (p.site === 'forest' && p.calc.bTarget < 0) strike(g, msg('strike.forestNegativeB', { id: p.id }));
+        if (A < 30) strike(g, p.town, msg('strike.lowAcceptance', { id: p.id }));
+        if (p.site === 'forest' && p.calc.bTarget < 0) strike(g, p.town, msg('strike.forestNegativeB', { id: p.id }));
       }
     } else if (st === 'operating') {
       const [lo, hi] = priceRange(P, p.support);
@@ -676,19 +707,24 @@ function endTurn(g) {
     } else if (st === 'sold') {
       if (p.sellTimer > 0) {
         p.sellTimer--;
-        if (p.sellTimer === 0) { g.T -= P.sellTrustPenalty; log(g, 'log.neglected', { id: p.id, trust: P.sellTrustPenalty }); }
+        if (p.sellTimer === 0) { g.towns[p.town].T -= P.sellTrustPenalty; log(g, 'log.neglected', { id: p.id, trust: P.sellTrustPenalty }); }
       }
     }
   });
-  g.T = clamp(g.T, 0, 100); g.R = clamp(g.R, 0, 100);
+  g.towns.forEach(tw => { tw.T = clamp(tw.T, 0, 100); }); g.R = clamp(g.R, 0, 100);
   checkOrdinance(g);
   g.negTurns = g.money < 0 ? g.negTurns + 1 : 0;
   if (g.negTurns >= 2) { g.lost = 'bankrupt'; log(g, 'log.lostMoney'); }
-  if (g.T < P.loseTrust) { g.lost = 'trust'; log(g, 'log.lostTrust'); }
+  if (g.towns[HOME].T < P.loseTrust) { g.lost = 'trust'; log(g, 'log.lostTrust'); }
   g.projects.forEach(p => { p.engaged = false; });
-  g.hist.push({ money: g.money, T: g.T });
+  g.hist.push({ money: g.money, T: g.towns[HOME].T });
   g.turn++; g.ap = P.apPerTurn;
   if (g.turn === P.supportEndTurn && !g.lost) log(g, 'log.supportEnded', { fy: calendar(g).fy });   // fiscal year 2027 begins
+  if (g.turn === P.neighbourTurn && g.turn <= P.turns && !g.lost) {
+    // the neighbouring town joins; word has travelled: its trust starts at the home town's trust
+    g.towns.push(newTown(g.towns[HOME].T));
+    log(g, 'log.neighbourJoined', { trust: g.towns[NEIGHBOUR].T });
+  }
   genSites(g);
   if (g.lost || g.turn > P.turns) g.over = true;
 }
@@ -730,7 +766,7 @@ function scoreGame(g) {
 // ===== What other files can use =====
 const api = {
   // lists and numbers
-  defaultParams, SITE_TYPES, RESIDENTS, TILE_KEYS, ACTIONS, STATUSES, MANAGEMENT, RULES_VERSION,
+  defaultParams, SITE_TYPES, RESIDENTS, TILE_KEYS, ACTIONS, STATUSES, MANAGEMENT, RULES_VERSION, HOME, NEIGHBOUR,
   MAP_SIDE, TILE_LETTERS,
   // game and player actions
   rng, clamp, newGame, startProject, changeDesign, dropProject, doAction, submit, sell, thinPanels, endTurn,
@@ -739,7 +775,7 @@ const api = {
   wishesMet, effS, matches, acceptance, checkAction, visitTarget,
   playerCost, planningCost, buildPayment, salePrice, expectedIncome, supportScheme, priceRange, calendar,
   cropLight, thinPreview,
-  promoQualifies, sitePermitTurns, submitPreview, objectionChance, objectionPreview,
+  promoQualifies, sitePermitTurns, submitPreview, objectionChance, objectionPreview, neighbourOpen,
   // scoring
   scorePark, scoreGame
 };
