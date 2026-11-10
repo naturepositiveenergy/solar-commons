@@ -53,7 +53,7 @@
     else {
       const avg = groups.reduce((s, r) => s + r.avg, 0) / groups.length;
       body = `
-        <p class="board-summary" id="boardSummary">${esc(t('board.summary', { n: groups.length, avg }))}</p>
+        <p class="board-summary" id="boardSummary">${esc(t(groups.length === 1 ? 'board.summaryOne' : 'board.summary', { n: groups.length, avg }))}</p>
         ${tableHtml(groups)}
         <div class="board-overviews">${gradesHtml(groups)}${categoriesHtml(groups)}</div>`;
     }

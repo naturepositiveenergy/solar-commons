@@ -480,6 +480,7 @@ SC_LANG.en = {
   "board.otherCodes": "The groups played different scenario codes: {codes}. Results are best compared within one scenario.",
   "board.otherVersions": "Some results come from an older version of the game ({versions}), with different rules.",
   "board.summary": "{n} groups · average park score {avg:1} of 14",
+  "board.summaryOne": "1 group · average park score {avg:1} of 14",
   "board.groupName": "Group {n}",
   "board.groupLabel": "Name of group {n}",
   "board.col.group": "Group",

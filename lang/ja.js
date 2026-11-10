@@ -480,6 +480,7 @@ SC_LANG.ja = {
   "board.otherCodes": "グループによってシナリオ番号が異なります：{codes}。結果は同じシナリオの中で比べるのがおすすめです。",
   "board.otherVersions": "古いバージョンのゲーム（{versions}）の結果が含まれています。ルールが異なります。",
   "board.summary": "{n}グループ・発電所の平均点 14点中{avg:1}点",
+  "board.summaryOne": "1グループ・発電所の平均点 14点中{avg:1}点",
   "board.groupName": "グループ{n}",
   "board.groupLabel": "グループ{n}の名前",
   "board.col.group": "グループ",
