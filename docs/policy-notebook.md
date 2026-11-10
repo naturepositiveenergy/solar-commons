@@ -86,7 +86,7 @@ After your review, the texts move into `lang/en.js` and `lang/ja.js`. This file 
 - PwC, 営農型太陽光発電の新たな制度枠組み (27 Aug 2026) *(secondary)*: https://www.pwc.com/jp/ja/knowledge/news/legal-news/legal-20260827-3.html
 - 農林水産省, 営農型太陽光発電について: https://www.maff.go.jp/j/shokusan/renewable/energy/einou.html
 
-**Please check:** the 2026 framework (expert panel of 15 April 2026: legal basis moved to the 農山漁村再エネ法, shading under 30% in principle, rice, wheat and soybeans recommended) is known only from secondary sources. Its start date, April 2027, comes from the project owner (10 November 2026): add the official notice as a source once it is published, and confirm the final shading value (30%). The permit periods ("3 or 10 years") are still left out because I could not confirm the current wording. In the game, "at least as many wide-spaced as dense panels" stands for the shading limit; it is a game simplification, not the real measure.
+**Please check:** the 2026 framework (expert panel of 15 April 2026: legal basis moved to the 農山漁村再エネ法, shading under 30% in principle, rice, wheat and soybeans recommended) is known only from secondary sources. Its start date (April 2027) and the shading limit (under 30% from April 2027) were confirmed by the project owner on 10 November 2026: add the official notice as a source once it is published. The permit periods ("3 or 10 years") are still left out because I could not confirm the current wording. In the game, "at least as many wide-spaced as dense panels" stands for the shading limit; it is a game simplification, not the real measure.
 
 ---
 
