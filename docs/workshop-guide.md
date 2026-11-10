@@ -62,8 +62,11 @@ For facilitators who use Solar Commons in a workshop, a class or a stakeholder m
 
   > Solar Commons – Scenario 1052
   > Grade A (Very good), average park score 11.5 of 14
-  > Capacity built 22.4 / 15 · Money 63.0 · Trust 68 · Reputation 61
+  > Capacity built 22.4 / 15 · Money 63.0 · Trust 68 (neighbouring town 61) · Reputation 61
   > Project 1 · Brownfield · 13 of 14: Site selection ○, Nature measures ○, …
+  > Results code for the facilitator: SC1|1052|v1.0|A|11.5|22.4|63.0|68,61|0,0|0,0|-|…
+
+- **Results board:** open https://naturepositiveenergy.github.io/solar-commons/results.html on your projector computer (it's also linked on the start screen). Paste all groups' copied results into the box at once. The board shows one row per group (you can type the group names), how many groups got each grade, and for each score category how many parks got ○, △ and ×: a quick way to see where groups struggled. Nothing is sent or saved.
 
 - Without a shared document: ask each group for its grade (S, A, B, C or D) and make a tally on the whiteboard. Then ask the groups with the highest and the lowest grade what they did differently.
 - If copying doesn't work in a browser, the summary appears in a box below the button, ready to be selected and copied by hand.
@@ -120,6 +123,7 @@ Pick three or four. The policy notebook entry in brackets has the real-world bac
 | A group has different sites from the others | Check the scenario code below the status bar. Start again with the link or the code. |
 | "Ready to play offline" doesn't appear | Open the game once with internet and wait a few seconds. Private or incognito windows may not keep an offline copy. |
 | Copy results doesn't copy | Copy the text from the box that appears below the button. |
+| The results board finds no results | The copied text must include its last line, the results code. Ask the group to press **Copy results** again. |
 | A device shows an older version of the game | Reload the page once with internet. |
 | Text is too small to read | Zoom in with Ctrl and + (Cmd and + on a Mac). |
 

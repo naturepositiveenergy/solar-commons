@@ -25,7 +25,7 @@ const ROOT = path.join(__dirname, '..');
 const FONT_DIR = path.join(ROOT, 'fonts');
 
 // Files and folders whose characters must be in the fonts (folders: all .js files in them)
-const SOURCES = ['index.html', 'prototype/simulator.html', 'lang', 'js'];
+const SOURCES = ['index.html', 'results.html', 'prototype/simulator.html', 'lang', 'js'];
 
 // Always included: English letters and punctuation, all kana, Japanese punctuation, full-width forms
 const EXTRA = [

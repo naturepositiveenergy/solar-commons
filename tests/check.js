@@ -23,6 +23,9 @@
 // 9. Contrast check: text colours are easy enough to read on their backgrounds (at least 4.5 : 1),
 //    and the keyboard focus ring and field borders stand out enough (at least 3 : 1), in light and
 //    dark mode (WCAG 2.2, level AA).
+// 10. Results code check: the results code that "Copy results" adds (js/results-code.js) reads back
+//    exactly what the end screen shows, and the facilitator's results board finds every code in a
+//    pasted text, in Japanese or English, and rejects damaged ones.
 
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto');
 const ROOT = path.join(__dirname, '..');
@@ -344,7 +347,9 @@ const jsFiles = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.j
 for (const f of jsFiles) {
   for (const m of read(f).matchAll(/'([a-z][a-zA-Z]*\.[\w.]+)'/g)) if (prefixes.has(m[1].split('.')[0])) used.add(m[1]);
 }
-for (const m of read('index.html').matchAll(/data-i18n(?:-aria-label)?="([\w.]+)"/g)) used.add(m[1]);
+for (const page of ['index.html', 'results.html']) {
+  for (const m of read(page).matchAll(/data-i18n(?:-aria-label)?="([\w.]+)"/g)) used.add(m[1]);
+}
 E.SITE_TYPES.forEach(s => { used.add('site.' + s); used.add('siteInfo.' + s); });
 E.RESIDENTS.forEach(r => { used.add('resident.' + r); used.add('wish.' + r); });
 Object.keys(E.ACTIONS).forEach(a => { used.add('action.' + a); used.add('actionInfo.' + a); });
@@ -392,9 +397,11 @@ const swList = (read('sw.js').match(/const FILES = \[([\s\S]*?)\];/) || [])[1];
 if (!swList) fail('could not find the list of files (const FILES = [...]) in sw.js');
 const offlineFiles = new Set([...(swList || '').matchAll(/'([^']+)'/g)].map(m => m[1] === './' ? 'index.html' : m[1]));
 for (const f of offlineFiles) if (!fs.existsSync(path.join(ROOT, f))) fail(`sw.js lists ${f}, which does not exist`);
-// Files the page loads: links and scripts in index.html, and the icons in the app description
-const html = read('index.html');
-const pageFiles = [...html.matchAll(/(?:href|src)="([^"#:]+)"/g)].map(m => m[1].split('?')[0]);
+// Files the pages load: links and scripts in index.html and results.html (the results board),
+// and the icons in the app description
+const html = read('index.html'), boardHtml = read('results.html');
+const pageFiles = [...(html + boardHtml).matchAll(/(?:href|src)="([^"#:]+)"/g)].map(m => m[1].split('?')[0])
+  .map(f => (f === './' ? 'index.html' : f));
 const manifest = JSON.parse(read('manifest.webmanifest'));
 manifest.icons.forEach(icon => pageFiles.push(icon.src));
 for (const f of new Set(pageFiles)) {
@@ -403,7 +410,8 @@ for (const f of new Set(pageFiles)) {
 }
 if (!html.includes('js/offline.js')) fail('index.html does not load js/offline.js, so the offline helper never starts');
 // One version number everywhere
-const versions = new Set([...html.matchAll(/\?v=([\w.-]+)"/g), ...read('prototype/simulator.html').matchAll(/\?v=([\w.-]+)"/g)].map(m => m[1]));
+const versions = new Set([...html.matchAll(/\?v=([\w.-]+)"/g), ...boardHtml.matchAll(/\?v=([\w.-]+)"/g),
+  ...read('prototype/simulator.html').matchAll(/\?v=([\w.-]+)"/g)].map(m => m[1]));
 if (versions.size !== 1) fail(`the ?v= version numbers differ: ${[...versions].join(', ')} (use one version everywhere)`);
 if (failures === beforeOffline) {
   console.log(`  ✓ the offline helper lists all ${new Set(pageFiles).size} files the game loads (version ${[...versions][0]})`);
@@ -545,6 +553,47 @@ for (const [mode, tokens] of [['light', light], ['dark', dark]]) {
   }
 }
 if (failures === beforeContrast) console.log(`  ✓ ${contrastPairs} colour pairs in light and dark mode have enough contrast`);
+
+// ---------- 10. Results code check ----------
+console.log('Results code check');
+const beforeResults = failures;
+vm.runInContext(read('js/results-code.js'), ctx, { filename: 'js/results-code.js' });
+const RC = ctx.SolarResults;
+let codesChecked = 0;
+const near = (a, b, step) => Math.abs(a - b) <= step / 2 + 1e-9;
+const sampleCodes = [];
+for (const [setName, changes] of Object.entries(SETS)) {
+  const P = Object.assign(E.defaultParams(), changes);
+  for (const k of Object.keys(S.STRATEGIES)) {
+    for (let i = 0; i < 50; i++) {
+      const g = S.runGame({ ...P }, k, seedOf(i));
+      const sc = E.scoreGame(g), code = RC.encode(g), r = RC.decode(code);
+      codesChecked++;
+      if (sampleCodes.length < 3 && i === 0) sampleCodes.push(code);
+      const where = `${setName} / ${k}, seed ${seedOf(i)}: ${code}`;
+      if (!r) { fail(`a results code could not be read back (${where})`); continue; }
+      const sameCats = RC.CATEGORIES.every(c => [2, 1, 0].every((mark, j) => r.categories[c][j] === sc.parks.filter(x => x.s[c] === mark).length));
+      if (r.code !== g.seed || r.rules !== E.RULES_VERSION || r.grade !== sc.grade || !near(r.avg, sc.avg, 0.1) ||
+          !near(r.cap, sc.capBuilt, 0.1) || !near(r.money, g.money, 0.1) || r.parks !== sc.parks.length || !sameCats ||
+          r.trust.length !== g.towns.length || r.trust.some((v, j) => !near(v, g.towns[j].T, 1)) ||
+          r.warnings.some((v, j) => v !== g.towns[j].strikes) || r.ordinance.some((v, j) => v !== g.towns[j].ordinance) ||
+          r.lost !== (g.lost || null)) {
+        fail(`a results code reads back differently from the end screen (${where})`);
+      }
+    }
+  }
+}
+// Pasted text from several groups, in both languages, with a damaged code that must be rejected
+const pasted = [
+  'Solar Commons – Scenario 1000', 'Grade A (Very good)', 'Results code for the facilitator: ' + sampleCodes[0],
+  'ソーラー・コモンズ – シナリオ 1000', '進行役用の結果コード：' + sampleCodes[1] + '。',
+  'damaged: ' + sampleCodes[2].replace('|v', '|x'), 'no code here'
+].join('\n');
+const found = RC.findAll(pasted);
+if (found.length !== 3 || !found[0].result || !found[1].result || found[2].result) {
+  fail(`the results board should find 2 good codes and 1 damaged one in a pasted text, found: ${found.map(x => (x.result ? 'good' : 'damaged')).join(', ') || 'none'}`);
+}
+if (failures === beforeResults) console.log(`  ✓ ${codesChecked} results codes read back exactly; codes are found in English and Japanese text, damaged ones rejected`);
 
 console.log(failures ? `\n${failures} problem(s) found.` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

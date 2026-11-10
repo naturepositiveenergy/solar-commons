@@ -24,8 +24,9 @@ const FILES = [
   './', 'index.html', 'manifest.webmanifest',
   'css/style.css', 'css/game.css', 'fonts/fonts.css',
   'js/i18n.js', 'lang/ja.js', 'lang/en.js', 'js/engine.js', 'js/ui.js', 'js/save.js',
-  'js/game-screen.js', 'js/map-editor.js', 'js/design-panel.js', 'js/end-screen.js',
+  'js/game-screen.js', 'js/map-editor.js', 'js/design-panel.js', 'js/results-code.js', 'js/end-screen.js',
   'js/notebook.js', 'js/offline.js', 'js/help.js', 'js/main.js',
+  'results.html', 'js/results-board.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png'
 ];

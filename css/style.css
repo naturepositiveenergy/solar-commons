@@ -157,6 +157,7 @@ html[lang="ja"] .title { letter-spacing: 0.02em; }
 #outdatedNote { max-width: 30em; margin-inline: auto; text-wrap: balance; }
 .start-code { margin: 18px 0 0; }
 .start-code .btn-link { min-height: 44px; }
+.start-board { margin-top: 4px; }
 
 /* Pop-up for scenario codes */
 .code-field { display: flex; flex-direction: column; gap: 6px; font-weight: 700; }
@@ -225,6 +226,8 @@ html[lang="ja"] .title { letter-spacing: 0.02em; }
   text-underline-offset: 3px;
   cursor: pointer;
 }
+/* A link that looks like the link-buttons (for example "For facilitators: results board") */
+a.btn-link { display: inline-flex; align-items: center; }
 .btn:hover:not(:disabled) { filter: brightness(1.08); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 button:focus-visible, summary:focus-visible, h3[tabindex]:focus-visible,

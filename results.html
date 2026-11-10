@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F4F7F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131916" media="(prefers-color-scheme: dark)">
+<!-- Results board for facilitators (Milestone 9): groups' copied results, side by side.
+     The page title and all texts are filled in from the language files. -->
+<title data-i18n="board.pageTitle"></title>
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- ?v=... as in index.html: change it with every update (see docs/publishing.md) -->
+<link rel="stylesheet" href="fonts/fonts.css?v=m10">
+<link rel="stylesheet" href="css/style.css?v=m10">
+<link rel="stylesheet" href="css/game.css?v=m10">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="btn-link" href="./" data-i18n="board.back"></a>
+    </div>
+    <!-- Language buttons are added by js/results-board.js, one per language file -->
+    <nav class="lang-switch" id="langSwitch" data-i18n-aria-label="lang.switchLabel"></nav>
+  </header>
+
+  <main>
+    <div class="board">
+      <h1 class="board-title" data-i18n="board.title"></h1>
+      <p class="section-hint" data-i18n="board.intro"></p>
+      <label class="board-label" for="boardInput" data-i18n="board.pasteLabel"></label>
+      <!-- Nothing typed or pasted here is sent anywhere or saved -->
+      <textarea class="board-input" id="boardInput" rows="6" spellcheck="false" autocomplete="off"></textarea>
+      <div class="board-actions">
+        <button type="button" class="btn btn-small" id="boardClear" data-i18n="board.clear"></button>
+      </div>
+      <!-- The results: filled in by js/results-board.js -->
+      <div id="boardOut" aria-live="polite"></div>
+    </div>
+  </main>
+</div>
+
+<script src="js/i18n.js?v=m10"></script>
+<script src="lang/ja.js?v=m10"></script>
+<script src="lang/en.js?v=m10"></script>
+<script src="js/engine.js?v=m10"></script>
+<script src="js/ui.js?v=m10"></script>
+<script src="js/results-code.js?v=m10"></script>
+<script src="js/results-board.js?v=m10"></script>
+</body>
+</html>

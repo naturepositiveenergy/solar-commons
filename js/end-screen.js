@@ -3,7 +3,8 @@
 // Each built park (operating, sold or removed) is rated in seven categories with ○ (2), △ (1) or × (0).
 // For every category that is not ○, the screen says what would have earned a ○.
 // For workshops, the screen shows the scenario code, and "Copy results" copies a short summary
-// that players can paste into a chat or a shared document to compare their games.
+// that players can paste into a chat or a shared document to compare their games. Its last line
+// is a results code that the facilitator's results board (results.html) can read.
 
 (function (root) {
   'use strict';
@@ -107,6 +108,8 @@
       }));
     }
     if (!s.parks.length) lines.push(t('end.noParks'));
+    // one line the facilitator's results board can read, in any language (js/results-code.js)
+    lines.push(t('results.code', { code: root.SolarResults.encode(g) }));
     return lines.join('\n');
   }
 
